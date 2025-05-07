@@ -1,0 +1,788 @@
+{
+  "info": {
+    "title": "洁小兔4.0",
+    "description": "",
+    "version": "1.0.0"
+  },
+  "tags": [
+    {
+      "name": "管理后台"
+    },
+    {
+      "name": "管理后台/学校管理"
+    }
+  ],
+  "paths": {
+    "/admin-api/tcom/school/update": {
+      "put": {
+        "summary": "更新学校管理",
+        "deprecated": false,
+        "description": "",
+        "operationId": "updateSchool",
+        "tags": [
+          "管理后台/学校管理",
+          "管理后台/学校管理"
+        ],
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "",
+            "required": false,
+            "default": "{{Authorization}}",
+            "type": "string",
+            "x-example": "{{Authorization}}"
+          },
+          {
+            "name": "tenant-id",
+            "in": "header",
+            "description": "",
+            "required": false,
+            "default": "{{tenant-id}}",
+            "type": "string",
+            "x-example": "{{tenant-id}}"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "schema": {
+              "$ref": "#/definitions/SchoolSaveReqVO"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {},
+            "schema": {
+              "$ref": "#/definitions/CommonResultBoolean"
+            }
+          }
+        },
+        "security": [],
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/octet-stream"
+        ]
+      }
+    },
+    "/admin-api/tcom/school/create": {
+      "post": {
+        "summary": "创建学校管理",
+        "deprecated": false,
+        "description": "",
+        "operationId": "createSchool",
+        "tags": [
+          "管理后台/学校管理",
+          "管理后台/学校管理"
+        ],
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "",
+            "required": false,
+            "default": "{{Authorization}}",
+            "type": "string",
+            "x-example": "{{Authorization}}"
+          },
+          {
+            "name": "tenant-id",
+            "in": "header",
+            "description": "",
+            "required": false,
+            "default": "{{tenant-id}}",
+            "type": "string",
+            "x-example": "{{tenant-id}}"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "schema": {
+              "$ref": "#/definitions/SchoolSaveReqVO"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {},
+            "schema": {
+              "$ref": "#/definitions/CommonResultString"
+            }
+          }
+        },
+        "security": [],
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/octet-stream"
+        ]
+      }
+    },
+    "/admin-api/tcom/school/page": {
+      "get": {
+        "summary": "获得学校管理分页",
+        "deprecated": false,
+        "description": "",
+        "operationId": "getSchoolPage",
+        "tags": [
+          "管理后台/学校管理",
+          "管理后台/学校管理"
+        ],
+        "parameters": [
+          {
+            "name": "schoolName",
+            "in": "query",
+            "description": "学校名称",
+            "required": false,
+            "type": "string",
+            "x-example": "洁兔"
+          },
+          {
+            "name": "schoolType",
+            "in": "query",
+            "description": "学校类型:1初中2高中3大学4职高5技校",
+            "required": false,
+            "type": "string",
+            "x-example": "1"
+          },
+          {
+            "name": "isHaveCard",
+            "in": "query",
+            "description": "是否有一卡通 1是2否",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "servceId",
+            "in": "query",
+            "description": "一卡通服务商id",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "schoolAddress",
+            "in": "query",
+            "description": "学校地址",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "pageNo",
+            "in": "query",
+            "description": "页码，从 1 开始",
+            "required": true,
+            "minimum": 1,
+            "type": "string",
+            "x-example": "1"
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "description": "每页条数，最大值为 100",
+            "required": true,
+            "minimum": 1,
+            "type": "string",
+            "x-example": "10"
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "",
+            "required": false,
+            "default": "{{Authorization}}",
+            "type": "string",
+            "x-example": "{{Authorization}}"
+          },
+          {
+            "name": "tenant-id",
+            "in": "header",
+            "description": "",
+            "required": false,
+            "default": "{{tenant-id}}",
+            "type": "string",
+            "x-example": "{{tenant-id}}"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {},
+            "schema": {
+              "$ref": "#/definitions/CommonResultPageResultSchoolRespVO"
+            }
+          }
+        },
+        "security": [],
+        "produces": [
+          "application/octet-stream"
+        ]
+      }
+    },
+    "/admin-api/tcom/school/get": {
+      "get": {
+        "summary": "获得学校管理",
+        "deprecated": false,
+        "description": "",
+        "operationId": "getSchool",
+        "tags": [
+          "管理后台/学校管理",
+          "管理后台/学校管理"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "query",
+            "description": "",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "",
+            "required": false,
+            "default": "{{Authorization}}",
+            "type": "string",
+            "x-example": "{{Authorization}}"
+          },
+          {
+            "name": "tenant-id",
+            "in": "header",
+            "description": "",
+            "required": false,
+            "default": "{{tenant-id}}",
+            "type": "string",
+            "x-example": "{{tenant-id}}"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {},
+            "schema": {
+              "$ref": "#/definitions/CommonResultSchoolRespVO"
+            }
+          }
+        },
+        "security": [],
+        "produces": [
+          "application/octet-stream"
+        ]
+      }
+    },
+    "/admin-api/tcom/school/getSchoolList": {
+      "get": {
+        "summary": "学校下拉列表",
+        "deprecated": false,
+        "description": "",
+        "operationId": "getSchoolList",
+        "tags": [
+          "管理后台/学校管理",
+          "管理后台/学校管理"
+        ],
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "query",
+            "description": "",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "tenantId",
+            "in": "query",
+            "description": "",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "isHaveCard",
+            "in": "query",
+            "description": "",
+            "required": true,
+            "format": "int32",
+            "type": "integer"
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "",
+            "required": false,
+            "default": "{{Authorization}}",
+            "type": "string",
+            "x-example": "{{Authorization}}"
+          },
+          {
+            "name": "tenant-id",
+            "in": "header",
+            "description": "",
+            "required": false,
+            "default": "{{tenant-id}}",
+            "type": "string",
+            "x-example": "{{tenant-id}}"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {},
+            "schema": {
+              "$ref": "#/definitions/CommonResultListSchoolDO"
+            }
+          }
+        },
+        "security": [],
+        "produces": [
+          "application/octet-stream"
+        ]
+      }
+    },
+    "/admin-api/tcom/school/delete": {
+      "delete": {
+        "summary": "删除学校管理",
+        "deprecated": false,
+        "description": "",
+        "operationId": "deleteSchool",
+        "tags": [
+          "管理后台/学校管理",
+          "管理后台/学校管理"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "query",
+            "description": "",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "",
+            "required": false,
+            "default": "{{Authorization}}",
+            "type": "string",
+            "x-example": "{{Authorization}}"
+          },
+          {
+            "name": "tenant-id",
+            "in": "header",
+            "description": "",
+            "required": false,
+            "default": "{{tenant-id}}",
+            "type": "string",
+            "x-example": "{{tenant-id}}"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {},
+            "schema": {
+              "$ref": "#/definitions/CommonResultBoolean"
+            }
+          }
+        },
+        "security": [],
+        "produces": [
+          "application/octet-stream"
+        ]
+      }
+    }
+  },
+  "security": [],
+  "swagger": "2.0",
+  "definitions": {
+    "CommonResultBoolean": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "data": {
+          "type": "boolean"
+        },
+        "msg": {
+          "type": "string"
+        },
+        "traceId": {
+          "type": "string"
+        }
+      }
+    },
+    "SchoolSaveReqVO": {
+      "required": [
+        "id",
+        "isHaveCard",
+        "schoolAddress",
+        "schoolLonLat",
+        "schoolName",
+        "schoolType"
+      ],
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "主键id",
+          "examples": [
+            "29932"
+          ]
+        },
+        "schoolName": {
+          "type": "string",
+          "description": "学校名称",
+          "examples": [
+            "洁兔"
+          ]
+        },
+        "schoolType": {
+          "type": "integer",
+          "description": "学校类型:1初中2高中3大学4职高5技校",
+          "format": "int32",
+          "examples": [
+            1
+          ]
+        },
+        "isHaveCard": {
+          "type": "integer",
+          "description": "是否有一卡通 1是2否",
+          "format": "int32"
+        },
+        "servceId": {
+          "type": "string",
+          "description": "一卡通服务商id"
+        },
+        "verifyType": {
+          "type": "integer",
+          "description": "对账模式 1线上对账 2线下对账  ",
+          "format": "int32",
+          "examples": [
+            1
+          ]
+        },
+        "thirdpartySchoolId": {
+          "type": "string",
+          "description": "一卡通学校编号"
+        },
+        "schoolAddress": {
+          "type": "string",
+          "description": "学校地址"
+        },
+        "schoolLonLat": {
+          "type": "string",
+          "description": "经纬度"
+        },
+        "schoolRemark": {
+          "type": "string",
+          "description": "备注",
+          "examples": [
+            "随便"
+          ]
+        },
+        "locationSearch": {
+          "type": "boolean",
+          "description": "是否支持位置搜索"
+        }
+      },
+      "description": "学校管理新增/修改 Request VO"
+    },
+    "CommonResultString": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "data": {
+          "type": "string"
+        },
+        "msg": {
+          "type": "string"
+        },
+        "traceId": {
+          "type": "string"
+        }
+      }
+    },
+    "CommonResultListSchoolDO": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "data": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/SchoolDO"
+          }
+        },
+        "msg": {
+          "type": "string"
+        },
+        "traceId": {
+          "type": "string"
+        }
+      }
+    },
+    "SchoolDO": {
+      "type": "object",
+      "properties": {
+        "createTime": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updateTime": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "creator": {
+          "type": "string"
+        },
+        "updater": {
+          "type": "string"
+        },
+        "deleted": {
+          "type": "boolean"
+        },
+        "id": {
+          "type": "string"
+        },
+        "orgId": {
+          "type": "string"
+        },
+        "tenantId": {
+          "type": "string"
+        },
+        "schoolName": {
+          "type": "string"
+        },
+        "schoolType": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "isHaveCard": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "servceId": {
+          "type": "string"
+        },
+        "thirdpartySchoolId": {
+          "type": "string"
+        },
+        "verifyType": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "schoolAddress": {
+          "type": "string"
+        },
+        "schoolLonLat": {
+          "type": "string"
+        },
+        "schoolRemark": {
+          "type": "string"
+        },
+        "locationSearch": {
+          "type": "boolean"
+        },
+        "orgName": {
+          "type": "string"
+        },
+        "tenantName": {
+          "type": "string"
+        },
+        "servceName": {
+          "type": "string"
+        },
+        "inductorTotal": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "incrementDate": {
+          "type": "string"
+        }
+      }
+    },
+    "CommonResultPageResultSchoolRespVO": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "data": {
+          "$ref": "#/definitions/PageResultSchoolRespVO"
+        },
+        "msg": {
+          "type": "string"
+        },
+        "traceId": {
+          "type": "string"
+        }
+      }
+    },
+    "PageResultSchoolRespVO": {
+      "required": [
+        "list",
+        "total"
+      ],
+      "type": "object",
+      "properties": {
+        "list": {
+          "type": "array",
+          "description": "数据",
+          "items": {
+            "$ref": "#/definitions/SchoolRespVO"
+          }
+        },
+        "total": {
+          "type": "integer",
+          "description": "总量",
+          "format": "int64"
+        }
+      },
+      "description": "分页结果"
+    },
+    "SchoolRespVO": {
+      "required": [
+        "createTime",
+        "id",
+        "isHaveCard",
+        "orgId",
+        "orgName",
+        "schoolAddress",
+        "schoolLonLat",
+        "schoolName",
+        "schoolType",
+        "tenantName"
+      ],
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "主键id",
+          "examples": [
+            "29932"
+          ]
+        },
+        "orgId": {
+          "type": "string",
+          "description": "组织ID",
+          "examples": [
+            "30662"
+          ]
+        },
+        "schoolName": {
+          "type": "string",
+          "description": "学校名称",
+          "examples": [
+            "洁兔"
+          ]
+        },
+        "schoolType": {
+          "type": "integer",
+          "description": "学校类型:1初中2高中3大学4职高5技校",
+          "format": "int32",
+          "examples": [
+            1
+          ]
+        },
+        "verifyType": {
+          "type": "integer",
+          "description": "对账模式 1线上对账 2线下对账  ",
+          "format": "int32",
+          "examples": [
+            1
+          ]
+        },
+        "isHaveCard": {
+          "type": "integer",
+          "description": "是否有一卡通 1是2否",
+          "format": "int32"
+        },
+        "servceId": {
+          "type": "string",
+          "description": "一卡通服务商id"
+        },
+        "servceName": {
+          "type": "string",
+          "description": "一卡通服务商名称"
+        },
+        "schoolAddress": {
+          "type": "string",
+          "description": "学校地址"
+        },
+        "schoolLonLat": {
+          "type": "string",
+          "description": "经纬度"
+        },
+        "schoolRemark": {
+          "type": "string",
+          "description": "备注",
+          "examples": [
+            "随便"
+          ]
+        },
+        "createTime": {
+          "type": "string",
+          "description": "创建时间",
+          "format": "date-time"
+        },
+        "orgName": {
+          "type": "string",
+          "description": "组织名称"
+        },
+        "tenantName": {
+          "type": "string",
+          "description": "工厂名称"
+        },
+        "updater": {
+          "type": "string",
+          "description": "修改人"
+        },
+        "updateTime": {
+          "type": "string",
+          "description": "修改时间",
+          "format": "date-time"
+        },
+        "thirdpartySchoolId": {
+          "type": "string",
+          "description": "一卡通学校编号"
+        },
+        "locationSearch": {
+          "type": "boolean",
+          "description": "是否支持位置搜索"
+        }
+      },
+      "description": "学校管理 Response VO"
+    },
+    "CommonResultSchoolRespVO": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "data": {
+          "$ref": "#/definitions/SchoolRespVO"
+        },
+        "msg": {
+          "type": "string"
+        },
+        "traceId": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "securityDefinitions": {},
+  "x-components": {}
+}

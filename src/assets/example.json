@@ -1,0 +1,186 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "学校管理API示例",
+    "description": "这是一个示例Swagger文件，展示API接口结构",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/admin-api/tcom/school/create": {
+      "post": {
+        "summary": "创建学校管理",
+        "description": "",
+        "operationId": "createSchool",
+        "tags": ["学校管理"],
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "认证令牌",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "schema": {
+              "$ref": "#/definitions/SchoolSaveReqVO"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/CommonResultString"
+            }
+          }
+        }
+      }
+    },
+    "/admin-api/tcom/school/page": {
+      "get": {
+        "summary": "获得学校管理分页",
+        "description": "",
+        "operationId": "getSchoolPage",
+        "tags": ["学校管理"],
+        "parameters": [
+          {
+            "name": "schoolName",
+            "in": "query",
+            "description": "学校名称",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "schoolType",
+            "in": "query",
+            "description": "学校类型:1初中2高中3大学4职高5技校",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "pageNo",
+            "in": "query",
+            "description": "页码，从 1 开始",
+            "required": true,
+            "minimum": 1,
+            "type": "string"
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "description": "每页条数，最大值为 100",
+            "required": true,
+            "minimum": 1,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/CommonResultPageResultSchoolRespVO"
+            }
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "SchoolSaveReqVO": {
+      "required": [
+        "schoolName",
+        "schoolType",
+        "schoolAddress"
+      ],
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "主键id"
+        },
+        "schoolName": {
+          "type": "string",
+          "description": "学校名称"
+        },
+        "schoolType": {
+          "type": "integer",
+          "description": "学校类型:1初中2高中3大学4职高5技校",
+          "format": "int32"
+        },
+        "schoolAddress": {
+          "type": "string",
+          "description": "学校地址"
+        }
+      }
+    },
+    "CommonResultString": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "data": {
+          "type": "string"
+        },
+        "msg": {
+          "type": "string"
+        }
+      }
+    },
+    "CommonResultPageResultSchoolRespVO": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "data": {
+          "$ref": "#/definitions/PageResultSchoolRespVO"
+        },
+        "msg": {
+          "type": "string"
+        }
+      }
+    },
+    "PageResultSchoolRespVO": {
+      "type": "object",
+      "properties": {
+        "list": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/SchoolRespVO"
+          }
+        },
+        "total": {
+          "type": "integer",
+          "format": "int64"
+        }
+      }
+    },
+    "SchoolRespVO": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "主键id"
+        },
+        "schoolName": {
+          "type": "string",
+          "description": "学校名称"
+        },
+        "schoolType": {
+          "type": "integer",
+          "description": "学校类型:1初中2高中3大学4职高5技校",
+          "format": "int32"
+        },
+        "schoolAddress": {
+          "type": "string",
+          "description": "学校地址"
+        }
+      }
+    }
+  }
+}

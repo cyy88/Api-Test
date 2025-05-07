@@ -1,0 +1,60 @@
+:root {
+  --primary-color: #409EFF;
+  --primary-light: #ecf5ff;
+  --primary-lighter: #f5f9ff;
+  --text-color: #333;
+  --border-color: #DCDFE6;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: "Helvetica Neue", Helvetica, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "微软雅黑", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--primary-lighter);
+  color: var(--text-color);
+}
+
+.page-container {
+  padding: 20px;
+}
+
+.card {
+  background-color: #fff;
+  border-radius: 6px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+  margin-bottom: 20px;
+}
+
+.card-header {
+  padding: 15px;
+  border-bottom: 1px solid var(--border-color);
+  font-weight: bold;
+  color: var(--primary-color);
+  background-color: var(--primary-light);
+  border-radius: 6px 6px 0 0;
+}
+
+.card-body {
+  padding: 15px;
+}
+
+.app-header {
+  background: linear-gradient(to right, #409EFF, #64B5F6);
+  color: white;
+  padding: 15px 20px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.app-title {
+  font-size: 24px;
+  margin: 0;
+}
+
+.app-subtitle {
+  font-size: 14px;
+  font-weight: normal;
+  margin: 5px 0 0;
+  opacity: 0.8;
+} 
