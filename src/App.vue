@@ -14,30 +14,27 @@
       </div>
 
       <div class="main-content" v-if="api">
-        <el-row :gutter="20">
-          <el-col :span="10">
-            <div class="card">
-              <div class="card-header">API路径列表</div>
-              <div class="card-body">
-                <api-paths-list 
-                  :api="api" 
-                  @select-path="handleSelectPath" 
-                />
-              </div>
-            </div>
-          </el-col>
-          <el-col :span="14">
-            <div class="card">
-              <div class="card-header">测试用例生成</div>
-              <div class="card-body">
-                <test-case-generator 
-                  :api="api" 
-                  :selected-path="selectedPath" 
-                />
-              </div>
-            </div>
-          </el-col>
-        </el-row>
+        <!-- API路径列表部分 - 上部分，宽度100% -->
+        <div class="card">
+          <div class="card-header">API路径列表</div>
+          <div class="card-body">
+            <api-paths-list 
+              :api="api" 
+              @select-path="handleSelectPath" 
+            />
+          </div>
+        </div>
+        
+        <!-- 测试用例生成部分 - 下部分，宽度100% -->
+        <div class="card">
+          <div class="card-header">测试用例生成</div>
+          <div class="card-body">
+            <test-case-generator 
+              :api="api" 
+              :selected-path="selectedPath" 
+            />
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -67,5 +64,9 @@ const handleSelectPath = (path) => {
 <style scoped>
 .main-content {
   margin-top: 20px;
+}
+
+.card {
+  margin-bottom: 20px;
 }
 </style> 

@@ -130,6 +130,7 @@ const getMethodTagType = (method) => {
 <style scoped>
 .api-paths-list {
   margin-bottom: 20px;
+  height: 100%;
 }
 
 .filter-container {
