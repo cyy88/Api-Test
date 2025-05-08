@@ -8,6 +8,7 @@
       :on-change="handleFileChange"
       :limit="1"
       :file-list="fileList"
+      :multiple="false"
     >
       <el-icon class="el-icon--upload"><upload-filled /></el-icon>
       <div class="el-upload__text">
@@ -40,6 +41,7 @@
 import { ref } from 'vue';
 import { UploadFilled } from '@element-plus/icons-vue';
 import { parseSwaggerDoc } from '../utils/swaggerParser';
+import { ElMessage } from 'element-plus';
 
 const fileList = ref([]);
 const error = ref('');
@@ -68,6 +70,12 @@ const parseSwagger = async () => {
   try {
     error.value = '';
     const file = fileList.value[0].raw;
+    
+    if (!file) {
+      error.value = '无法读取文件，请重新上传';
+      return;
+    }
+    
     const api = await parseSwaggerDoc(file);
     
     // 验证文档有效性
@@ -76,6 +84,7 @@ const parseSwagger = async () => {
       return;
     }
     
+    ElMessage.success('文档解析成功');
     emit('parsed', api);
   } catch (err) {
     error.value = '解析文档失败: ' + (err.message || '未知错误');
@@ -93,5 +102,17 @@ const parseSwagger = async () => {
   margin-top: 15px;
   display: flex;
   gap: 10px;
+}
+
+:deep(.el-upload-dragger) {
+  width: 100%;
+  height: 180px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+:deep(.el-upload__text) {
+  margin-top: 10px;
 }
 </style> 

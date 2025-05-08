@@ -6,7 +6,7 @@
     </header>
 
     <div class="page-container">
-      <div class="card" v-if="!api">
+      <div class="card upload-card" v-if="!api">
         <div class="card-header">Swagger文档上传</div>
         <div class="card-body">
           <file-uploader @parsed="handleParsed" />
@@ -48,6 +48,7 @@
 
 <script setup>
 import { ref, onMounted, watch } from 'vue';
+import { ElMessage } from 'element-plus';
 import FileUploader from './components/FileUploader.vue';
 import ApiPathsList from './components/ApiPathsList.vue';
 import TestCaseGenerator from './components/TestCaseGenerator.vue';
@@ -72,6 +73,7 @@ onMounted(() => {
     // 加载失败时清除本地存储
     localStorage.removeItem('swagger-api');
     localStorage.removeItem('selected-path');
+    ElMessage.error('加载保存的数据失败，已重置应用');
   }
 });
 
@@ -109,6 +111,7 @@ const clearApiData = () => {
   selectedPath.value = null;
   localStorage.removeItem('swagger-api');
   localStorage.removeItem('selected-path');
+  ElMessage.success('已删除文档，返回上传界面');
 };
 </script>
 
@@ -119,6 +122,13 @@ const clearApiData = () => {
 
 .card {
   margin-bottom: 20px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
+}
+
+.upload-card {
+  max-width: 800px;
+  margin: 0 auto;
 }
 
 .header-actions {
