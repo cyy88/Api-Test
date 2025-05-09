@@ -106,7 +106,7 @@
         <el-table-column label="参数" min-width="200">
           <template #default="scope">
             <div v-if="scope.row.parameters && scope.row.parameters !== '{}'" class="formatted-json">
-              <template v-for="(value, key) in JSON.parse(scope.row.parameters)" :key="key">
+              <template v-for="(value, key) in parseJsonSafely(scope.row.parameters)" :key="key">
                 <div class="param-item">
                   <span class="param-name">{{ key }}:</span>
                   <span class="param-value">{{ value }}</span>
@@ -120,7 +120,7 @@
         <el-table-column label="请求体" min-width="300">
           <template #default="scope">
             <div v-if="scope.row.body && scope.row.body !== '{}'" class="formatted-json">
-              <template v-for="(value, key) in JSON.parse(scope.row.body)" :key="key">
+              <template v-for="(value, key) in parseJsonSafely(scope.row.body)" :key="key">
                 <div class="param-item">
                   <span class="param-name">{{ key }}:</span>
                   <span class="param-value">{{ typeof value === 'object' ? JSON.stringify(value) : value }}</span>
@@ -396,7 +396,24 @@ const generateTemplateForPath = (path) => {
 - ["异常场景", 400]`;
 };
 
-// 监听选中路径的变化，自动生成测试用例
+// 在 script setup 部分添加安全解析 JSON 的函数
+const parseJsonSafely = (jsonString) => {
+  try {
+    // 如果已经是对象，直接返回
+    if (typeof jsonString === 'object' && jsonString !== null) {
+      return jsonString;
+    }
+    
+    // 尝试解析 JSON 字符串
+    return JSON.parse(jsonString);
+  } catch (error) {
+    console.error('解析 JSON 时出错:', error, jsonString);
+    // 解析失败时返回空对象
+    return {};
+  }
+};
+
+// 修改 watch 函数来更安全地处理测试用例
 watch(() => props.selectedPath, (newPath) => {
   if (newPath) {
     try {
@@ -408,7 +425,21 @@ watch(() => props.selectedPath, (newPath) => {
       // 自动生成测试用例
       const cases = generateTestCases(props.api, newPath);
       testCases.value = cases;
-      formattedTestCases.value = formatTestCasesForDisplay(cases);
+      
+      // 确保格式化测试用例不会抛出错误
+      try {
+        formattedTestCases.value = formatTestCasesForDisplay(cases);
+      } catch (formatError) {
+        console.error('格式化测试用例时出错:', formatError);
+        // 使用简单格式显示测试用例
+        formattedTestCases.value = cases.map(c => ({
+          name: c.name || '未命名测试',
+          parameters: typeof c.parameters === 'string' ? c.parameters : JSON.stringify(c.parameters || {}),
+          body: typeof c.body === 'string' ? c.body : JSON.stringify(c.body || {}),
+          expectedStatus: c.expectedStatus || 200,
+          description: c.description || ''
+        }));
+      }
       
       // 发送生成的测试用例数量
       emit('test-cases-generated', cases.length);
@@ -433,7 +464,19 @@ const generateCasesWithSelectedMethod = async () => {
       // 使用标准方法生成
       const cases = generateTestCases(props.api, props.selectedPath);
       testCases.value = cases;
-      formattedTestCases.value = formatTestCasesForDisplay(cases);
+      
+      try {
+        formattedTestCases.value = formatTestCasesForDisplay(cases);
+      } catch (formatError) {
+        console.error('格式化测试用例时出错:', formatError);
+        formattedTestCases.value = cases.map(c => ({
+          name: c.name || '未命名测试',
+          parameters: typeof c.parameters === 'string' ? c.parameters : JSON.stringify(c.parameters || {}),
+          body: typeof c.body === 'string' ? c.body : JSON.stringify(c.body || {}),
+          expectedStatus: c.expectedStatus || 200,
+          description: c.description || ''
+        }));
+      }
       
       generateOptionsVisible.value = false;
       ElMessage.success(`成功生成 ${cases.length} 个测试用例`);
@@ -458,7 +501,19 @@ const generateCasesWithSelectedMethod = async () => {
       try {
         const aiCases = await generateTestCasesWithAI(props.api, props.selectedPath, aiTemplate.value, apiKey);
         testCases.value = aiCases;
-        formattedTestCases.value = formatTestCasesForDisplay(aiCases);
+        
+        try {
+          formattedTestCases.value = formatTestCasesForDisplay(aiCases);
+        } catch (formatError) {
+          console.error('格式化AI生成的测试用例时出错:', formatError);
+          formattedTestCases.value = aiCases.map(c => ({
+            name: c.name || '未命名测试',
+            parameters: typeof c.parameters === 'string' ? c.parameters : JSON.stringify(c.parameters || {}),
+            body: typeof c.body === 'string' ? c.body : JSON.stringify(c.body || {}),
+            expectedStatus: c.expectedStatus || 200,
+            description: c.description || ''
+          }));
+        }
         
         aiGeneratingVisible.value = false;
         ElMessage.success(`AI成功生成 ${aiCases.length} 个测试用例`);
@@ -677,6 +732,8 @@ const handleExport = (command) => {
 
 .test-cases {
   margin-top: 20px;
+  max-height: 400px;
+  overflow-y: auto;
 }
 
 pre {

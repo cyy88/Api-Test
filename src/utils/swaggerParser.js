@@ -597,23 +597,64 @@ export function formatTestCasesForDisplay(testCases) {
     if (!testCases || !Array.isArray(testCases)) return [];
     
     return testCases.map(testCase => {
-      const { name, parameters, body, expectedStatus } = testCase;
-      
-      // 格式化请求参数
-      const formattedParams = Object.entries(parameters || {}).map(
-        ([key, value]) => `${key}: ${JSON.stringify(value)}`
-      ).join('\n');
-      
-      // 格式化请求体
-      const formattedBody = body ? JSON.stringify(body, null, 2) : '';
-      
-      // 返回格式化的测试用例
-      return {
-        name,
-        parameters: formattedParams,
-        body: formattedBody,
-        expectedStatus
-      };
+      try {
+        const { name, parameters, body, expectedStatus, description } = testCase;
+        
+        // 安全处理参数 - 确保参数是对象或可以被序列化为JSON的字符串
+        let formattedParams;
+        try {
+          // 如果参数已经是字符串，尝试解析为对象
+          const paramsObj = typeof parameters === 'string' ? 
+            JSON.parse(parameters) : 
+            (parameters || {});
+          
+          // 将对象参数格式化为JSON字符串
+          formattedParams = JSON.stringify(paramsObj);
+        } catch (err) {
+          console.warn('格式化参数出错:', err);
+          // 如果解析失败，使用原始值或空对象
+          formattedParams = typeof parameters === 'string' ? 
+            parameters : 
+            JSON.stringify({});
+        }
+        
+        // 安全处理请求体 - 确保是字符串
+        let formattedBody;
+        try {
+          // 如果请求体已经是字符串，尝试解析为对象
+          const bodyObj = typeof body === 'string' ? 
+            JSON.parse(body) : 
+            (body || {});
+          
+          // 将对象请求体格式化为JSON字符串
+          formattedBody = JSON.stringify(bodyObj);
+        } catch (err) {
+          console.warn('格式化请求体出错:', err);
+          // 如果解析失败，使用原始值或空对象
+          formattedBody = typeof body === 'string' ? 
+            body : 
+            JSON.stringify({});
+        }
+        
+        // 返回格式化的测试用例
+        return {
+          name: name || '未命名测试',
+          parameters: formattedParams || '{}',
+          body: formattedBody || '{}',
+          expectedStatus: expectedStatus || 200,
+          description: description || ''
+        };
+      } catch (itemError) {
+        console.error('格式化单个测试用例时出错:', itemError);
+        // 返回一个默认的测试用例对象以防止整个映射失败
+        return {
+          name: '格式化错误的测试用例',
+          parameters: '{}',
+          body: '{}',
+          expectedStatus: 200,
+          description: '数据格式错误'
+        };
+      }
     });
   } catch (error) {
     console.error('格式化测试用例时出错:', error);

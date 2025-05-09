@@ -277,14 +277,14 @@ const handleClearError = () => {
 
 .page-container {
   flex: 1;
-  overflow: hidden;
+  overflow: auto;
   padding: 20px;
 }
 
 .main-content {
-  height: calc(100vh - 150px);
   display: flex;
   flex-direction: column;
+  min-height: calc(100vh - 150px);
 }
 
 .card {
@@ -295,14 +295,13 @@ const handleClearError = () => {
 }
 
 .api-card {
-  flex: 1;
   margin-bottom: 20px;
   min-height: 400px;
 }
 
 .testcase-card {
-  flex: 1;
   min-height: 300px;
+  margin-bottom: 20px;
 }
 
 .card-header {
