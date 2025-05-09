@@ -378,7 +378,8 @@ export function generateTestCases(api, pathInfo) {
     const normalCase = {
       name: '正常数据',
       parameters: {},
-      expectedStatus: 200
+      expectedStatus: 200,
+      description: '使用有效数据测试API正常响应'
     };
     
     // 处理路径参数、查询参数和请求头
@@ -414,6 +415,7 @@ export function generateTestCases(api, pathInfo) {
           missingCase.name = `${param.name}参数缺失`;
           delete missingCase.parameters[param.name];
           missingCase.expectedStatus = 400;
+          missingCase.description = `必填参数${param.name}缺失时应返回错误`;
           testCases.push(missingCase);
         } catch (err) {
           console.warn(`生成参数缺失测试用例出错 [${param.name}]:`, err);
@@ -431,6 +433,7 @@ export function generateTestCases(api, pathInfo) {
             delete missingCase.body[propName];
           }
           missingCase.expectedStatus = 400;
+          missingCase.description = `请求体中必填属性${propName}缺失时应返回错误`;
           testCases.push(missingCase);
         } catch (err) {
           console.warn(`生成请求体属性缺失测试用例出错 [${propName}]:`, err);
@@ -446,6 +449,7 @@ export function generateTestCases(api, pathInfo) {
           wrongTypeCase.name = `${param.name}参数类型错误`;
           wrongTypeCase.parameters[param.name] = generateWrongTypeValue(param.schema || param);
           wrongTypeCase.expectedStatus = 400;
+          wrongTypeCase.description = `参数${param.name}类型错误时应返回错误`;
           testCases.push(wrongTypeCase);
         } catch (err) {
           console.warn(`生成参数类型错误测试用例出错 [${param.name}]:`, err);
@@ -605,6 +609,11 @@ export function formatTestCasesForDisplay(testCases) {
         if (Array.isArray(testCase)) {
           name = testCase[0] || '未命名测试';
           
+          // 检查是否有特定的描述字段(通常格式为[name, body, status, description])
+          if (testCase.length >= 4 && typeof testCase[3] === 'string') {
+            description = testCase[3];
+          }
+          
           // 最后一个元素通常是状态码
           if (testCase.length > 1 && typeof testCase[testCase.length - 1] === 'number') {
             expectedStatus = testCase[testCase.length - 1];
@@ -616,13 +625,23 @@ export function formatTestCasesForDisplay(testCases) {
             
             if (jsonItems.length > 0) {
               body = jsonItems[0];
+              
+              // 检查对象中是否包含description字段
+              if (!description && body.description && typeof body.description === 'string') {
+                description = body.description;
+                // 避免在body中重复显示description
+                const { description: _, ...restBody } = body;
+                body = restBody;
+              }
             } else {
               // 否则尝试构建body对象
               const middleItems = testCase.slice(1, -1);
               if (middleItems.length > 0) {
                 // 如果是一个字符串，可能是参数描述
                 if (middleItems.length === 1 && typeof middleItems[0] === 'string') {
-                  description = middleItems[0];
+                  if (!description) {
+                    description = middleItems[0];
+                  }
                 } else {
                   // 否则尝试构建参数对象
                   try {
@@ -686,13 +705,20 @@ export function formatTestCasesForDisplay(testCases) {
             const allItems = testCase.slice(1);
             if (allItems.length > 0) {
               // 同上处理逻辑，但不排除最后一个元素
-              // ...与上面类似的处理逻辑
               const jsonItems = allItems.filter(item => 
                 typeof item === 'object' && item !== null
               );
               
               if (jsonItems.length > 0) {
                 body = jsonItems[0];
+                
+                // 检查对象中是否包含description字段
+                if (!description && body.description && typeof body.description === 'string') {
+                  description = body.description;
+                  // 避免在body中重复显示description
+                  const { description: _, ...restBody } = body;
+                  body = restBody;
+                }
               } else {
                 body = { data: allItems.join(', ') };
               }
@@ -753,7 +779,7 @@ export function formatTestCasesForDisplay(testCases) {
           parameters: formattedParams || '{}',
           body: formattedBody || '{}',
           expectedStatus: expectedStatus || 200,
-          description: description || ''
+          description: description || ''  // 确保始终有description字段
         };
       } catch (itemError) {
         console.error('格式化单个测试用例时出错:', itemError);
