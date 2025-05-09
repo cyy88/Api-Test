@@ -49,12 +49,18 @@
         <p>{{ selectedPath.description }}</p>
       </div>
 
-      <el-tabs>
-        <!-- 请求信息标签页 -->
-        <el-tab-pane label="请求信息">
+      <!-- 顶部导航栏 -->
+      <el-tabs v-model="activeTopTab" class="api-top-tabs">
+        <el-tab-pane label="请求信息" name="request"></el-tab-pane>
+        <el-tab-pane label="响应信息" name="response"></el-tab-pane>
+      </el-tabs>
+
+      <!-- 请求信息内容 -->
+      <div v-if="activeTopTab === 'request'">
+        <!-- 请求信息子选项卡 -->
+        <el-tabs v-model="activeRequestTab" type="border-card" class="sub-tabs">
           <!-- 请求头 -->
-          <div class="api-param-section">
-            <div class="section-title">请求头</div>
+          <el-tab-pane label="请求头" name="headers">
             <el-table :data="headerParams" border style="width: 100%">
               <el-table-column prop="name" label="参数名" width="200" />
               <el-table-column prop="description" label="描述" min-width="200" />
@@ -67,11 +73,13 @@
               </el-table-column>
               <el-table-column prop="type" label="类型" width="120" />
             </el-table>
-          </div>
+            <div v-if="headerParams.length === 0" class="empty-data">
+              <el-empty description="无请求头参数" />
+            </div>
+          </el-tab-pane>
 
           <!-- 路径参数 -->
-          <div class="api-param-section" v-if="pathParams.length > 0">
-            <div class="section-title">路径参数</div>
+          <el-tab-pane label="路径参数" name="path">
             <el-table :data="pathParams" border style="width: 100%">
               <el-table-column prop="name" label="参数名" width="200" />
               <el-table-column prop="description" label="描述" min-width="200" />
@@ -84,11 +92,13 @@
               </el-table-column>
               <el-table-column prop="type" label="类型" width="120" />
             </el-table>
-          </div>
+            <div v-if="pathParams.length === 0" class="empty-data">
+              <el-empty description="无路径参数" />
+            </div>
+          </el-tab-pane>
 
           <!-- 查询参数 -->
-          <div class="api-param-section" v-if="queryParams.length > 0">
-            <div class="section-title">查询参数</div>
+          <el-tab-pane label="查询参数" name="query">
             <el-table :data="queryParams" border style="width: 100%">
               <el-table-column prop="name" label="参数名" width="200" />
               <el-table-column prop="description" label="描述" min-width="200" />
@@ -101,11 +111,13 @@
               </el-table-column>
               <el-table-column prop="type" label="类型" width="120" />
             </el-table>
-          </div>
+            <div v-if="queryParams.length === 0" class="empty-data">
+              <el-empty description="无查询参数" />
+            </div>
+          </el-tab-pane>
 
           <!-- 请求体 -->
-          <div class="api-param-section" v-if="hasRequestBody">
-            <div class="section-title">请求体</div>
+          <el-tab-pane label="请求体" name="body">
             <el-table v-if="requestBodyFields.length > 0" :data="requestBodyFields" border style="width: 100%">
               <el-table-column prop="name" label="参数名" width="200" />
               <el-table-column prop="description" label="描述" min-width="200" />
@@ -118,36 +130,37 @@
               </el-table-column>
               <el-table-column prop="type" label="类型" width="120" />
             </el-table>
-            <div class="code-block" v-if="requestBodySchema">
+            <div v-if="requestBodySchema" class="code-block">
               <div class="code-title">示例数据：</div>
               <pre class="json-content">{{ formatRequestBodyExample }}</pre>
             </div>
-          </div>
-        </el-tab-pane>
+            <div v-if="!hasRequestBody" class="empty-data">
+              <el-empty description="无请求体参数" />
+            </div>
+          </el-tab-pane>
+        </el-tabs>
+      </div>
 
-        <!-- 响应信息标签页 -->
-        <el-tab-pane label="响应信息">
-          <div class="api-param-section">
-            <el-tabs type="border-card">
-              <el-tab-pane 
-                v-for="(response, status) in selectedPath.responses"
-                :key="status" 
-                :label="getResponseStatusLabel(status, response)"
-              >
-                <div v-if="response.description" class="response-description">
-                  {{ response.description }}
-                </div>
-                <div v-if="getResponseSchema(response)" class="response-schema">
-                  <div class="code-title">响应数据结构：</div>
-                  <div class="code-block">
-                    <pre class="json-content">{{ formatResponseExample(response) }}</pre>
-                  </div>
-                </div>
-              </el-tab-pane>
-            </el-tabs>
-          </div>
-        </el-tab-pane>
-      </el-tabs>
+      <!-- 响应信息内容 -->
+      <div v-if="activeTopTab === 'response'" class="response-container">
+        <el-tabs type="border-card">
+          <el-tab-pane 
+            v-for="(response, status) in selectedPath.responses"
+            :key="status" 
+            :label="getResponseStatusLabel(status, response)"
+          >
+            <div v-if="response.description" class="response-description">
+              {{ response.description }}
+            </div>
+            <div v-if="getResponseSchema(response)" class="response-schema">
+              <div class="code-title">响应数据结构：</div>
+              <div class="code-block">
+                <pre class="json-content">{{ formatResponseExample(response) }}</pre>
+              </div>
+            </div>
+          </el-tab-pane>
+        </el-tabs>
+      </div>
     </div>
     
     <div class="api-empty-state" v-else>
@@ -175,6 +188,8 @@ const searchQuery = ref('');
 const methodFilter = ref('');
 const tagFilter = ref('');
 const selectedPath = ref(null);
+const activeTopTab = ref('request');
+const activeRequestTab = ref('headers');
 
 // 提取API路径
 onMounted(() => {
@@ -524,17 +539,16 @@ const generateExampleFromSchema = (schema) => {
   color: #666;
 }
 
-.api-param-section {
+.api-top-tabs {
   margin-bottom: 20px;
 }
 
-.section-title {
-  font-weight: 500;
-  font-size: 16px;
-  padding: 10px 0;
-  border-bottom: 1px solid #ebeef5;
-  margin-bottom: 10px;
-  color: #409EFF;
+.sub-tabs {
+  margin-bottom: 20px;
+}
+
+.api-param-section {
+  margin-bottom: 20px;
 }
 
 .required-param {
@@ -569,6 +583,10 @@ const generateExampleFromSchema = (schema) => {
 .response-description {
   margin-bottom: 10px;
   color: #666;
+}
+
+.empty-data {
+  padding: 20px 0;
 }
 
 :deep(.selected-row) {
