@@ -293,11 +293,50 @@ function generateWrongTypeValue(schema) {
 // 将测试用例转换为适合展示的格式
 export function formatTestCasesForDisplay(testCases) {
   return testCases.map(testCase => {
+    // 提取或设置补充说明
+    let description = '';
+    
+    // 尝试从测试用例的comment/description字段获取
+    if (testCase.description) {
+      description = testCase.description;
+    } else if (testCase.comment) {
+      description = testCase.comment;
+    } else if (testCase.note) {
+      description = testCase.note;
+    } else if (testCase.remark) {
+      description = testCase.remark;
+    } else {
+      // 根据用例名称自动推断补充说明
+      const name = testCase.name.toLowerCase();
+      if (name.includes('正常') || name.includes('成功')) {
+        description = '有效值正常请求';
+      } else if (name.includes('缺失') || name.includes('空值')) {
+        description = '必填参数缺失';
+      } else if (name.includes('类型错误') || name.includes('类型不匹配')) {
+        description = '参数类型不匹配';
+      } else if (name.includes('长度')) {
+        description = '参数长度限制';
+      } else if (name.includes('格式错误') || name.includes('非法格式')) {
+        description = '参数格式不正确';
+      } else if (name.includes('越界') || name.includes('超出范围')) {
+        description = '参数值超出限制范围';
+      } else if (name.includes('特殊字符')) {
+        description = '包含特殊字符';
+      } else if (name.includes('不存在') || name.includes('不匹配')) {
+        description = '资源不存在或不匹配';
+      } else if (name.includes('重复') || name.includes('已存在')) {
+        description = '数据重复或冲突';
+      } else if (name.includes('权限') || name.includes('鉴权') || name.includes('认证')) {
+        description = '权限验证失败';
+      }
+    }
+
     return {
       name: testCase.name,
       parameters: JSON.stringify(testCase.parameters, null, 2),
       body: testCase.body ? JSON.stringify(testCase.body, null, 2) : '',
-      expectedStatus: testCase.expectedStatus
+      expectedStatus: testCase.expectedStatus,
+      description: description
     };
   });
 }

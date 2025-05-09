@@ -107,7 +107,43 @@ export async function generateTestCasesWithAI(swaggerDoc, apiPath, template, tem
       const aiResponse = response.data.choices[0].message.content;
       
       // 将AI响应转换为测试用例数组
-      return parseAIResponseToTestCases(aiResponse);
+      try {
+        const testCases = parseAIResponseToTestCases(aiResponse);
+        
+        // 检查解析后的结果
+        if (!Array.isArray(testCases)) {
+          console.error('解析后的测试用例不是数组:', testCases);
+          throw new Error('AI返回的数据格式无法解析为测试用例数组');
+        }
+        
+        if (testCases.length === 0) {
+          console.warn('解析后的测试用例数组为空');
+          throw new Error('AI未生成任何有效的测试用例');
+        }
+        
+        // 输出调试信息
+        console.log(`成功解析 ${testCases.length} 个测试用例:`, 
+          testCases.slice(0, 2).map(tc => Array.isArray(tc) ? tc[0] : tc.name || tc));
+        
+        return testCases;
+      } catch (parseError) {
+        console.error('解析AI响应失败:', parseError);
+        console.log('原始AI响应内容:', aiResponse);
+        
+        // 如果出现解析错误，可以尝试一些回退策略
+        // 例如，将原始响应文本按行拆分，并进行简单处理
+        const fallbackCases = aiResponse.split('\n')
+          .filter(line => line.trim().length > 0 && !line.trim().startsWith('#') && !line.trim().startsWith('```'))
+          .map(line => line.trim())
+          .map(line => [line, 200]);
+        
+        if (fallbackCases.length > 0) {
+          console.log('使用回退策略生成的测试用例:', fallbackCases);
+          return fallbackCases;
+        }
+        
+        throw new Error(`AI返回数据解析失败: ${parseError.message}`);
+      }
     } catch (apiError) {
       console.error('DeepSeek API调用失败:', apiError);
       
@@ -284,40 +320,274 @@ ${template}
  */
 function parseAIResponseToTestCases(aiResponse) {
   try {
-    // 尝试提取JSON数组
-    const arrayMatch = aiResponse.match(/\[\s*\n?\s*\[[\s\S]*\]\s*\n?\s*\]/);
-    if (arrayMatch) {
-      return JSON.parse(arrayMatch[0]);
+    console.log('原始AI响应:', aiResponse);
+    
+    // 移除AI响应中的代码块标记和markdown标题等非数据内容
+    const cleanedResponse = aiResponse
+      .replace(/^```[\w]*\n?/gm, '') // 移除代码块开始标记
+      .replace(/```$/gm, '');        // 移除代码块结束标记
+    
+    // 1. 尝试直接作为JSON数组解析整个响应
+    try {
+      const directJson = JSON.parse(cleanedResponse);
+      if (Array.isArray(directJson)) {
+        console.log('成功: 将整个响应解析为JSON数组');
+        return directJson;
+      }
+    } catch (e) {
+      console.log('无法将整个响应直接解析为JSON');
     }
     
-    // 尝试提取代码块中的内容
+    // 2. 尝试提取JSON数组
+    const arrayMatch = cleanedResponse.match(/\[\s*\n?\s*\[[\s\S]*\]\s*\n?\s*\]/);
+    if (arrayMatch) {
+      try {
+        const parsed = JSON.parse(arrayMatch[0]);
+        console.log('成功: 从响应中提取并解析JSON数组');
+        return parsed;
+      } catch (e) {
+        console.error('JSON数组提取失败:', e);
+      }
+    }
+    
+    // 3. 尝试提取代码块中的JSON内容
     const codeBlockMatch = aiResponse.match(/```(?:json)?\s*([\s\S]*?)```/);
     if (codeBlockMatch) {
-      return JSON.parse(codeBlockMatch[1]);
+      try {
+        // 先尝试直接解析
+        try {
+          const parsed = JSON.parse(codeBlockMatch[1]);
+          console.log('成功: 从代码块中解析出JSON');
+          return parsed;
+        } catch (jsonError) {
+          // 如果直接解析失败，尝试修复常见问题后再解析
+          const fixedJson = codeBlockMatch[1]
+            .replace(/'/g, '"')                      // 将单引号替换为双引号
+            .replace(/,(\s*[\]}])/g, '$1')           // 移除尾随逗号
+            .replace(/([{,]\s*)(\w+)(\s*:)/g, '$1"$2"$3'); // 确保属性名有引号
+            
+          const parsed = JSON.parse(fixedJson);
+          console.log('成功: 修复并解析代码块中的JSON');
+          return parsed;
+        }
+      } catch (e) {
+        console.error('代码块解析失败:', e);
+      }
+    }
+
+    // 4. 尝试解析markdown表格格式
+    if (cleanedResponse.includes('|') && cleanedResponse.includes('---')) {
+      try {
+        // 提取表格行，排除分隔行
+        const tableRows = cleanedResponse.split('\n')
+          .filter(line => line.trim().startsWith('|') && !line.includes('---'));
+        
+        if (tableRows.length >= 2) { // 至少有标题行和一个数据行
+          // 获取表头
+          const headers = tableRows[0].split('|')
+            .map(cell => cell.trim())
+            .filter(cell => cell !== '');
+          
+          // 获取数据行
+          const dataRows = tableRows.slice(1);
+          
+          // 转换为数组格式
+          const tableData = dataRows.map(row => {
+            const cells = row.split('|')
+              .map(cell => cell.trim())
+              .filter(cell => cell !== '');
+            
+            // 检查最后一个单元格是否为状态码
+            const lastCell = cells[cells.length - 1];
+            let statusCode = 200;
+            let processedCells = [...cells];
+            
+            if (/^\d{3}$/.test(lastCell)) {
+              statusCode = parseInt(lastCell);
+              processedCells = cells.slice(0, -1); // 移除状态码
+            }
+            
+            // 检查是否有JSON格式的请求体
+            const jsonCellIndex = processedCells.findIndex(cell => 
+              (cell.startsWith('{') && cell.endsWith('}')) || 
+              (cell.startsWith('[') && cell.endsWith(']'))
+            );
+            
+            if (jsonCellIndex >= 0) {
+              try {
+                // 尝试解析JSON格式的单元格
+                const jsonData = JSON.parse(processedCells[jsonCellIndex]);
+                
+                // 创建新的结果数组
+                const result = [...processedCells.slice(0, jsonCellIndex)];
+                
+                // 如果JSON是对象，添加对象的值
+                if (typeof jsonData === 'object' && !Array.isArray(jsonData)) {
+                  result.push(...Object.values(jsonData));
+                } else {
+                  // 如果是数组，直接添加
+                  result.push(jsonData);
+                }
+                
+                // 添加剩余的单元格和状态码
+                result.push(...processedCells.slice(jsonCellIndex + 1));
+                result.push(statusCode);
+                
+                return result;
+              } catch (e) {
+                // 如果解析失败，继续使用原始单元格
+                console.error('解析表格中的JSON单元格失败:', e);
+              }
+            }
+            
+            // 返回测试用例数组格式，包括状态码
+            return [...processedCells, statusCode];
+          });
+          
+          console.log('成功: 从markdown表格解析出测试用例:', tableData.length);
+          return tableData;
+        }
+      } catch (e) {
+        console.error('Markdown表格解析失败:', e);
+      }
     }
     
-    // 如果无法解析为JSON，尝试按行解析
-    const lines = aiResponse.split('\n')
-      .filter(line => line.trim().startsWith('-') || line.trim().startsWith('['))
-      .map(line => line.trim().replace(/^-\s*/, ''));
+    // 5. 尝试解析带有编号的markdown列表
+    const markdownListItems = cleanedResponse.match(/###?\s*\d+[\.\)]\s*(.*?)(?=###?\s*\d+[\.\)]|$)/gs);
+    if (markdownListItems && markdownListItems.length > 0) {
+      try {
+        const listData = markdownListItems.map(item => {
+          // 提取测试名称
+          const nameMatch = item.match(/###?\s*\d+[\.\)]\s*(.*?)[\r\n]/);
+          const name = nameMatch ? nameMatch[1].trim() : "未命名测试";
+          
+          // 尝试提取状态码
+          const statusMatch = item.match(/响应状态码[：:]\s*(\d{3})/);
+          const status = statusMatch ? parseInt(statusMatch[1]) : 200;
+          
+          // 尝试提取JSON数据
+          const jsonMatch = item.match(/[{[][\s\S]*?[}\]]/);
+          if (jsonMatch) {
+            try {
+              const jsonData = JSON.parse(jsonMatch[0]);
+              if (typeof jsonData === 'object' && !Array.isArray(jsonData)) {
+                // 将对象值转换为数组
+                return [name, ...Object.values(jsonData), status];
+              } else {
+                // 直接返回数组值
+                return [name, jsonData, status];
+              }
+            } catch (e) {
+              console.error('解析列表项中的JSON失败:', e);
+            }
+          }
+          
+          // 提取参数，尝试多种可能的格式
+          const paramsMatches = 
+            item.match(/[参数值|请求参数][：:]([\s\S]*?)(?=响应状态码|$)/) ||
+            item.match(/请求体[：:]([\s\S]*?)(?=响应状态码|$)/) ||
+            item.match(/数据[：:]([\s\S]*?)(?=响应状态码|$)/);
+          
+          if (paramsMatches) {
+            let paramsText = paramsMatches[1].trim();
+            // 尝试解析为JSON或提取关键参数
+            try {
+              if (paramsText.startsWith('{') && paramsText.endsWith('}')) {
+                // 如果是JSON格式，返回结构化测试用例
+                return [name, ...Object.values(JSON.parse(paramsText)), status];
+              } else {
+                // 否则提取关键参数值
+                const paramValues = paramsText
+                  .split(/[,，]/)
+                  .map(p => p.trim())
+                  .filter(p => p !== '');
+                  
+                if (paramValues.length > 0) {
+                  return [name, ...paramValues, status];
+                }
+              }
+            } catch (e) {
+              console.error('解析参数失败:', e);
+            }
+          }
+          
+          // 如果无法提取复杂信息，简单返回名称和状态码
+          return [name, status];
+        });
+        
+        console.log('成功: 从markdown列表解析出测试用例:', listData.length);
+        return listData;
+      } catch (e) {
+        console.error('Markdown列表解析失败:', e);
+      }
+    }
+    
+    // 6. 尝试解析无序列表或简单的行格式
+    const lines = cleanedResponse.split('\n')
+      .filter(line => {
+        const trimmed = line.trim();
+        return trimmed.length > 0 && 
+              (trimmed.startsWith('-') || 
+               trimmed.startsWith('*') || 
+               trimmed.startsWith('[') ||
+               /^\d+[\.)]/.test(trimmed));
+      })
+      .map(line => line.trim().replace(/^[-*]\s*/, '').replace(/^\d+[\.)]/, '').trim());
     
     if (lines.length > 0) {
       // 尝试每行作为JSON数组解析
-      return lines.map(line => {
+      const lineData = lines.map(line => {
         try {
-          return JSON.parse(line);
+          // 尝试将整行解析为JSON
+          if ((line.startsWith('[') && line.endsWith(']')) || 
+              (line.startsWith('{') && line.endsWith('}'))) {
+            return JSON.parse(line);
+          }
+          
+          // 尝试提取行中的JSON部分
+          const jsonMatch = line.match(/[{\[][\s\S]*?[}\]]/);
+          if (jsonMatch) {
+            const jsonPart = jsonMatch[0];
+            try {
+              const jsonData = JSON.parse(jsonPart);
+              const restLine = line.replace(jsonPart, '').trim();
+              
+              // 检查是否有状态码
+              const statusMatch = restLine.match(/\b(\d{3})\b/);
+              const status = statusMatch ? parseInt(statusMatch[1]) : 200;
+              
+              // 提取测试名称
+              const namePart = restLine.replace(/\b\d{3}\b/, '').trim();
+              const name = namePart || "测试用例";
+              
+              if (Array.isArray(jsonData)) {
+                return [name, ...jsonData, status];
+              } else {
+                return [name, ...Object.values(jsonData), status];
+              }
+            } catch (e) {
+              console.error('解析行中的JSON部分失败:', e);
+            }
+          }
+          
+          // 如果无法解析为JSON，尝试拆分为基本元素
+          return line.split(/[,，]/).map(item => item.trim());
         } catch (e) {
-          // 如果解析失败，尝试将其作为纯文本数组返回
-          return line.split(',').map(item => item.trim());
+          // 如果任何解析都失败，将行作为单个元素返回
+          return [line];
         }
       });
+      
+      console.log('成功: 从行列表解析出测试用例:', lineData.length);
+      return lineData;
     }
     
-    // 如果以上所有方法都失败，则返回原始文本
-    return aiResponse;
+    // 如果以上所有方法都失败，记录原始响应并抛出错误
+    console.error('无法解析AI响应为测试用例数组。原始响应:', aiResponse);
+    throw new Error('无法解析AI返回的测试用例格式');
   } catch (error) {
     console.error('解析AI响应失败:', error);
-    return aiResponse; // 返回原始响应
+    throw new Error(`AI返回的测试用例格式不正确: ${error.message}`);
   }
 }
 

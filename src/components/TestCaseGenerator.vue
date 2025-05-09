@@ -105,19 +105,35 @@
         
         <el-table-column label="参数" min-width="200">
           <template #default="scope">
-            <pre v-if="scope.row.parameters">{{ scope.row.parameters }}</pre>
+            <div v-if="scope.row.parameters && scope.row.parameters !== '{}'" class="formatted-json">
+              <template v-for="(value, key) in JSON.parse(scope.row.parameters)" :key="key">
+                <div class="param-item">
+                  <span class="param-name">{{ key }}:</span>
+                  <span class="param-value">{{ value }}</span>
+                </div>
+              </template>
+            </div>
             <span v-else>-</span>
           </template>
         </el-table-column>
         
         <el-table-column label="请求体" min-width="300">
           <template #default="scope">
-            <pre v-if="scope.row.body">{{ scope.row.body }}</pre>
+            <div v-if="scope.row.body && scope.row.body !== '{}'" class="formatted-json">
+              <template v-for="(value, key) in JSON.parse(scope.row.body)" :key="key">
+                <div class="param-item">
+                  <span class="param-name">{{ key }}:</span>
+                  <span class="param-value">{{ typeof value === 'object' ? JSON.stringify(value) : value }}</span>
+                </div>
+              </template>
+            </div>
             <span v-else>-</span>
           </template>
         </el-table-column>
         
         <el-table-column prop="expectedStatus" label="预期状态码" width="120" />
+        
+        <el-table-column prop="description" label="补充说明" min-width="150" />
         
         <el-table-column label="测试结果" width="100" v-if="testResults.length > 0">
           <template #default="scope">
@@ -467,6 +483,29 @@ const generateCasesWithAI = async () => {
         duration: 3000
       });
     } else {
+      console.log(aiTestCases);
+      
+      // 记录AI返回数据的类型和格式
+      console.log('AI返回数据类型:', typeof aiTestCases);
+      if (typeof aiTestCases === 'string') {
+        console.log('AI返回了字符串格式数据，尝试解析为JSON');
+        try {
+          const parsed = JSON.parse(aiTestCases);
+          console.log('解析后的数据:', parsed);
+          aiTestCases = parsed;
+        } catch (err) {
+          console.error('解析AI返回的字符串为JSON失败:', err);
+        }
+      } else if (Array.isArray(aiTestCases)) {
+        console.log('AI返回了数组格式数据，数组长度:', aiTestCases.length);
+        if (aiTestCases.length > 0) {
+          console.log('第一个元素类型:', typeof aiTestCases[0]);
+          console.log('第一个元素值:', aiTestCases[0]);
+        }
+      } else if (typeof aiTestCases === 'object') {
+        console.log('AI返回了对象格式数据:', Object.keys(aiTestCases));
+      }
+      
       throw new Error('AI返回的测试用例格式不正确');
     }
   } catch (error) {
@@ -485,12 +524,55 @@ const generateCasesWithAI = async () => {
 
 // 将AI生成的数组格式转换为测试用例对象
 const convertAIArrayToTestCases = (aiArrays) => {
+  // 先确保aiArrays是数组
+  if (!Array.isArray(aiArrays)) {
+    console.warn("AI返回的数据不是数组格式:", aiArrays);
+    
+    // 如果是字符串，尝试解析为JSON
+    if (typeof aiArrays === 'string') {
+      try {
+        const parsed = JSON.parse(aiArrays);
+        if (Array.isArray(parsed)) {
+          aiArrays = parsed;
+        } else {
+          return [{
+            name: "AI返回格式错误",
+            parameters: {},
+            body: null,
+            expectedStatus: 400
+          }];
+        }
+      } catch (e) {
+        console.error("无法解析AI返回的字符串为JSON:", e);
+        return [{
+          name: "AI返回格式错误",
+          parameters: {},
+          body: null,
+          expectedStatus: 400
+        }];
+      }
+    } else {
+      return [{
+        name: "AI返回格式错误",
+        parameters: {},
+        body: null,
+        expectedStatus: 400
+      }];
+    }
+  }
+  
+  // 处理数组格式的测试用例
   return aiArrays.map(array => {
+    // 检查是否已经是测试用例对象格式
+    if (typeof array === 'object' && !Array.isArray(array) && array.name) {
+      return array;
+    }
+    
     // 通用转换逻辑，基于API方法和参数结构
     if (!Array.isArray(array)) {
       console.warn("非数组格式的AI测试用例:", array);
       return {
-        name: "格式错误",
+        name: typeof array === 'string' ? array : "格式错误",
         parameters: {},
         body: null,
         expectedStatus: 400
@@ -533,11 +615,28 @@ const convertAIArrayToTestCases = (aiArrays) => {
         }
       });
       
+      // 提取或创建补充说明
+      let description = '';
+      if (array.length > 2) {
+        // 尝试从数组中搜索可能的补充说明，通常可能在第一个或最后一个元素后
+        const possibleDescriptions = array.filter(item => 
+          typeof item === 'string' && 
+          !item.match(/^\d{3}$/) && // 不是状态码
+          item !== name && // 不是名称
+          !Object.values(parameters).includes(item) // 不是参数值
+        );
+        
+        if (possibleDescriptions.length > 0) {
+          description = possibleDescriptions[0];
+        }
+      }
+      
       return {
         name,
         parameters,
         body: null,
-        expectedStatus
+        expectedStatus,
+        description
       };
     } else if (props.selectedPath.method === 'POST' || props.selectedPath.method === 'PUT' || props.selectedPath.method === 'PATCH') {
       // 对于POST/PUT/PATCH请求，创建请求体对象
@@ -587,34 +686,93 @@ const convertAIArrayToTestCases = (aiArrays) => {
         }
       }
       
+      // 尝试直接使用JSON对象
+      if (dataArray.length === 1 && typeof dataArray[0] === 'object' && !Array.isArray(dataArray[0])) {
+        // 提取或创建补充说明
+        let description = '';
+        // 搜索不是状态码或名称的字符串元素，作为可能的补充说明
+        const possibleDescriptions = array.filter(item => 
+          typeof item === 'string' && 
+          !item.match(/^\d{3}$/) && // 不是状态码
+          item !== name // 不是名称
+        );
+        
+        if (possibleDescriptions.length > 0) {
+          description = possibleDescriptions[0];
+        }
+        
+        return {
+          name,
+          parameters: {},
+          body: dataArray[0],
+          expectedStatus,
+          description
+        };
+      }
+      
       // 将数组值映射到请求体属性
       bodyProperties.forEach((prop, index) => {
         if (index < dataArray.length) {
           // 设置请求体属性值，尝试根据类型进行转换
           let value = dataArray[index];
           
+          // 忽略undefined和null值，除非是显式的null测试
+          if (value === undefined || (value === '' && prop.type !== 'string')) {
+            return;
+          }
+          
           // 尝试转换值类型
           if (prop.type === 'number' || prop.type === 'integer') {
             // 对于数字类型，将字符串转换为数字
-            if (typeof value === 'string' && !isNaN(Number(value))) {
-              value = Number(value);
+            if (typeof value === 'string') {
+              if (value.toLowerCase() === 'null' || value === '') {
+                value = null;
+              } else if (!isNaN(Number(value))) {
+                value = Number(value);
+              }
             }
           } else if (prop.type === 'boolean') {
             // 对于布尔类型，转换为布尔值
             if (typeof value === 'string') {
-              value = value.toLowerCase() === 'true';
+              if (value.toLowerCase() === 'true') {
+                value = true;
+              } else if (value.toLowerCase() === 'false') {
+                value = false;
+              } else if (value.toLowerCase() === 'null' || value === '') {
+                value = null;
+              }
             }
+          } else if (prop.type === 'string' && value === null) {
+            // 对于字符串类型，将null转换为空字符串
+            value = '';
           }
           
           body[prop.name] = value;
         }
       });
       
+      // 提取或创建补充说明
+      let description = '';
+      if (array.length > 2) {
+        // 尝试从数组中搜索可能的补充说明，通常可能在第一个或最后一个元素后
+        const possibleDescriptions = array.filter(item => 
+          typeof item === 'string' && 
+          !item.match(/^\d{3}$/) && // 不是状态码
+          item !== name && // 不是名称
+          !Object.values(body).includes(item) // 不是请求体中的值
+        );
+        
+        if (possibleDescriptions.length > 0) {
+          description = possibleDescriptions[0];
+        }
+      }
+      
       return {
         name,
         parameters: {},
         body,
-        expectedStatus
+        expectedStatus,
+        description
       };
     }
     
@@ -623,7 +781,12 @@ const convertAIArrayToTestCases = (aiArrays) => {
       name,
       parameters: {},
       body: dataArray.length > 0 ? { values: dataArray } : null,
-      expectedStatus
+      expectedStatus,
+      description: array.length > 2 ? array.find(item => 
+        typeof item === 'string' && 
+        !item.match(/^\d{3}$/) && // 不是状态码
+        item !== name // 不是名称
+      ) || '' : ''
     };
   });
 };
@@ -788,6 +951,32 @@ pre {
   margin: 0;
   white-space: pre-wrap;
   font-size: 12px;
+}
+
+/* JSON格式化样式 */
+.formatted-json {
+  font-family: monospace;
+  font-size: 12px;
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 2px;
+}
+
+.param-item {
+  padding: 2px 0;
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.param-name {
+  color: #0d47a1;
+  margin-right: 5px;
+  font-weight: bold;
+}
+
+.param-value {
+  word-break: break-word;
+  flex: 1;
 }
 
 .test-results {
