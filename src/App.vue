@@ -19,8 +19,8 @@
         </div>
 
         <div class="main-content">
-          <!-- API路径列表部分 - 上部分，宽度100% -->
-          <div class="card">
+          <!-- API路径列表部分 - 上部分，高度设为50% -->
+          <div class="card api-card">
             <div class="card-header">API路径列表</div>
             <div class="card-body">
               <api-paths-list 
@@ -30,8 +30,8 @@
             </div>
           </div>
           
-          <!-- 测试用例生成部分 - 下部分，宽度100% -->
-          <div class="card">
+          <!-- 测试用例生成部分 - 下部分，高度设为45% -->
+          <div class="card testcase-card" v-if="selectedPath">
             <div class="card-header">测试用例生成</div>
             <div class="card-body">
               <test-case-generator 
@@ -116,14 +116,53 @@ const clearApiData = () => {
 </script>
 
 <style scoped>
+.app {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.page-container {
+  flex: 1;
+  overflow: hidden;
+  padding: 20px;
+}
+
 .main-content {
-  margin-top: 20px;
+  height: calc(100vh - 150px);
+  display: flex;
+  flex-direction: column;
 }
 
 .card {
-  margin-bottom: 20px;
   box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
   border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+}
+
+.api-card {
+  flex: 1;
+  margin-bottom: 20px;
+  min-height: 400px;
+}
+
+.testcase-card {
+  flex: 1;
+  min-height: 300px;
+}
+
+.card-header {
+  padding: 12px 20px;
+  border-bottom: 1px solid #e4e7ed;
+  font-weight: bold;
+}
+
+.card-body {
+  padding: 20px;
+  flex: 1;
+  overflow: hidden;
 }
 
 .upload-card {

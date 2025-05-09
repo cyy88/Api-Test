@@ -14,6 +14,17 @@ body {
   -moz-osx-font-smoothing: grayscale;
   background-color: var(--primary-lighter);
   color: var(--text-color);
+  height: 100vh;
+  overflow: hidden;
+}
+
+html {
+  height: 100%;
+  box-sizing: border-box;
+}
+
+#app {
+  height: 100%;
 }
 
 .page-container {
@@ -57,4 +68,40 @@ body {
   font-weight: normal;
   margin: 5px 0 0;
   opacity: 0.8;
+}
+
+/* API路径列表和详情样式 */
+.el-tabs__header {
+  margin-bottom: 15px;
+}
+
+.el-tabs__item {
+  font-size: 14px;
+  padding: 0 16px;
+}
+
+.el-collapse-item__header {
+  font-weight: 500;
+  background-color: var(--primary-light);
+}
+
+.json-content {
+  background-color: #f8f8f8;
+  padding: 10px;
+  border-radius: 4px;
+  max-height: 400px;
+  overflow: auto;
+  font-family: Consolas, Monaco, 'Andale Mono', monospace;
+}
+
+.api-detail {
+  background-color: white;
+}
+
+.api-empty-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  background-color: white;
 } 
