@@ -248,117 +248,134 @@ const generateTemplateForPath = (path) => {
     }
   }
   
-  // 检查API路径类型
-  if (path.path.includes('/school')) {
-    // 学校管理API
-    if (path.method === 'POST' || path.method === 'PUT') {
-      // 分析SchoolSaveReqVO结构
-      const hasSchoolName = bodyProperties.some(p => p.name === 'schoolName');
-      const hasSchoolType = bodyProperties.some(p => p.name === 'schoolType');
-      const hasSchoolAddress = bodyProperties.some(p => p.name === 'schoolAddress');
-      const hasSchoolLonLat = bodyProperties.some(p => p.name === 'schoolLonLat');
-      const hasIsHaveCard = bodyProperties.some(p => p.name === 'isHaveCard');
-      
-      if (hasSchoolName && hasSchoolType && hasSchoolAddress && hasSchoolLonLat && hasIsHaveCard) {
-        return `- [ "正常数据", "测试学校", 1, 2, "浙江省杭州市拱墅区石桥路与永华街交叉口滨江·春语蓝庭", "120.188966,30.346182", 200 ]
-- ["学校名称为空", "", 1, 2, "浙江省杭州市拱墅区石桥路与永华街交叉口滨江·春语蓝庭", "120.188966,30.346182", 400]
-- ["学校地址为空", "测试学校2", 1, 2, "", "120.188966,30.346182", 400]
-- ["学校坐标为空", "测试学校3", 1, 2, "浙江省杭州市拱墅区石桥路与永华街交叉口滨江·春语蓝庭", "", 400]
-- ["学校类型非法值", "测试学校4", 99, 2, "浙江省杭州市", "120.188966,30.346182", 400]
-- ["是否有一卡通非法值", "测试学校5", 1, 99, "浙江省杭州市", "120.188966,30.346182", 400]`;
-      }
-    } else if (path.path.includes('/page')) {
-      // 分页查询
-      // 分析查询参数
-      const queryParams = parameters.filter(p => p.in === 'query');
+  // 通用模板生成逻辑，不再基于具体API路径类型
+  // 从请求参数和请求体中提取必要字段，构建通用模板
+  
+  // 获取查询参数（对于GET请求）或路径参数
+  const queryParams = parameters.filter(p => p.in === 'query' || p.in === 'path');
+  
+  // 获取请求体参数（对于POST/PUT请求）
+  const bodyParams = bodyProperties.filter(p => p.required);
+  
+  // 根据HTTP方法生成不同模板
+  if (path.method === 'GET') {
+    // GET请求模板
+    if (queryParams.length > 0) {
+      // 有查询参数的GET请求
       const paramNames = queryParams.map(p => p.name);
       
-      if (paramNames.includes('pageNo') && paramNames.includes('pageSize')) {
-        let template = `- ["正常查询", `;
-        
-        // 添加其他查询参数
-        queryParams.forEach(param => {
-          if (param.name !== 'pageNo' && param.name !== 'pageSize') {
-            template += `null, `;
-          }
-        });
-        
-        template += `1, 10, 200]
-- ["页码为0", `;
-        
-        // 再次添加其他查询参数
-        queryParams.forEach(param => {
-          if (param.name !== 'pageNo' && param.name !== 'pageSize') {
-            template += `null, `;
-          }
-        });
-        
-        template += `0, 10, 400]
-- ["每页大小为0", `;
-        
-        // 第三次添加其他查询参数
-        queryParams.forEach(param => {
-          if (param.name !== 'pageNo' && param.name !== 'pageSize') {
-            template += `null, `;
-          }
-        });
-        
-        template += `1, 0, 400]`;
-        
-        return template;
-      }
-    } else if (path.path.includes('/delete') || path.path.includes('/get')) {
-      // 获取或删除操作
-      const idParam = parameters.find(p => p.name === 'id');
+      // 生成基本测试行
+      let template = `- ["正常查询", `;
       
-      if (idParam) {
-        return `- ["正常操作", "test_id", 200]
-- ["ID为空", "", 400]
-- ["ID不存在", "non_existent_id", 404]`;
-      }
+      // 为每个参数添加占位符
+      paramNames.forEach(() => {
+        template += `"validValue", `;
+      });
+      
+      template += `200]\n`;
+      
+      // 添加参数缺失场景
+      queryParams.filter(p => p.required).forEach((param, index) => {
+        template += `- ["${param.name}参数缺失", `;
+        
+        // 填充前面的参数
+        for (let i = 0; i < paramNames.length; i++) {
+          if (i === index) {
+            template += `"", `;
+          } else {
+            template += `"validValue", `;
+          }
+        }
+        
+        template += `400]\n`;
+      });
+      
+      // 添加参数类型错误场景
+      queryParams.forEach((param, index) => {
+        if (param.type === 'number' || param.type === 'integer') {
+          template += `- ["${param.name}类型错误", `;
+          
+          // 填充参数
+          for (let i = 0; i < paramNames.length; i++) {
+            if (i === index) {
+              template += `"non-numeric", `;
+            } else {
+              template += `"validValue", `;
+            }
+          }
+          
+          template += `400]\n`;
+        }
+      });
+      
+      return template;
+    } else {
+      // 无参数的GET请求
+      return `- ["正常查询", 200]`;
     }
-  }
-  
-  // 恢复用户和登录API相关的代码
-  if (path.path.includes('/user')) {
-    // 用户相关API
-    if (path.method === 'POST') {
-      return `- ["正常创建", "test_user", "password123", "test@example.com", 1, 200]
-- ["用户名为空", "", "password123", "test@example.com", 1, 400]
-- ["密码为空", "test_user", "", "test@example.com", 1, 400]
-- ["邮箱格式错误", "test_user", "password123", "invalid_email", 1, 400]`;
-    }
-  } else if (path.path.includes('/login')) {
-    // 登录相关API
-    return `- ["正常登录", "admin", "password123", 200]
-- ["用户名为空", "", "password123", 400]
-- ["密码为空", "admin", "", 400]
-- ["用户名不存在", "nonexistent", "password123", 401]
-- ["密码错误", "admin", "wrong_password", 401]`;
-  }
-  
-  // 如果没有匹配到特定模式，则生成通用模板
-  // 这部分逻辑保持不变...
-  
-  // 默认模板 - 根据API方法生成通用模板
-  if (path.method === 'GET') {
-    return `- ["正常查询", "param1", "param2", 200]
-- ["参数1为空", "", "param2", 400]
-- ["参数2为空", "param1", "", 400]`;
   } else if (path.method === 'POST' || path.method === 'PUT') {
-    return `- ["正常创建/更新", "field1", "field2", 200]
-- ["字段1为空", "", "field2", 400]
-- ["字段2为空", "field1", "", 400]`;
+    // POST/PUT请求模板
+    if (bodyParams.length > 0) {
+      // 有请求体的POST/PUT请求
+      const paramNames = bodyParams.map(p => p.name);
+      
+      // 为了简洁，只生成几个关键场景
+      let template = `- ["正常请求", `;
+      
+      // 为每个参数添加占位符
+      paramNames.forEach(name => {
+        if (name.toLowerCase().includes('type') || name.toLowerCase().includes('status')) {
+          template += `1, `; // 对于类型字段，默认使用数字
+        } else if (name.toLowerCase().includes('id')) {
+          template += `"1", `; // ID字段通常是字符串
+        } else {
+          template += `"validValue", `;
+        }
+      });
+      
+      template += `200]\n`;
+      
+      // 添加必填参数缺失场景
+      bodyParams.forEach((param, index) => {
+        template += `- ["${param.name}参数缺失", `;
+        
+        // 填充参数
+        for (let i = 0; i < paramNames.length; i++) {
+          if (i === index) {
+            template += `"", `;
+          } else if (paramNames[i].toLowerCase().includes('type') || paramNames[i].toLowerCase().includes('status')) {
+            template += `1, `;
+          } else if (paramNames[i].toLowerCase().includes('id')) {
+            template += `"1", `;
+          } else {
+            template += `"validValue", `;
+          }
+        }
+        
+        template += `400]\n`;
+      });
+      
+      return template;
+    } else {
+      // 无请求体的POST/PUT请求
+      return `- ["正常请求", 200]`;
+    }
   } else if (path.method === 'DELETE') {
-    return `- ["正常删除", "id", 200]
+    // DELETE请求模板
+    const idParam = queryParams.find(p => p.name.toLowerCase().includes('id'));
+    
+    if (idParam) {
+      return `- ["正常删除", "validId", 200]
 - ["ID为空", "", 400]
-- ["ID不存在", "non_existent_id", 404]`;
+- ["ID不存在", "nonExistId", 404]`;
+    } else {
+      return `- ["正常删除", 200]`;
+    }
   }
   
   // 最通用的模板
-  return `- ["正常场景", "param1", "param2", 200]
-- ["异常场景1", "", "param2", 400]
-- ["异常场景2", "param1", "", 400]`;
+  return `- ["正常场景", 200]
+- ["异常场景", 400]`;
 };
 
 // 监听选择的路径变化，自动生成对应模板
@@ -469,53 +486,145 @@ const generateCasesWithAI = async () => {
 // 将AI生成的数组格式转换为测试用例对象
 const convertAIArrayToTestCases = (aiArrays) => {
   return aiArrays.map(array => {
-    // 检查API类型，根据不同API格式化不同的测试用例
-    if (props.selectedPath.path.includes('/school')) {
-      // 学校管理API的转换
-      const [name, schoolName, schoolType, isHaveCard, schoolAddress, schoolLonLat, expectedStatus] = array;
-      
-      // 创建请求体对象
-      let body = null;
-      if (props.selectedPath.method === 'POST' || props.selectedPath.method === 'PUT') {
-        body = {
-          id: props.selectedPath.method === 'PUT' ? "test_id" : undefined,
-          schoolName,
-          schoolType,
-          isHaveCard,
-          schoolAddress,
-          schoolLonLat,
-          locationSearch: false,
-          schoolRemark: "自动生成的测试用例"
-        };
-      }
-      
-      // 创建参数对象
+    // 通用转换逻辑，基于API方法和参数结构
+    if (!Array.isArray(array)) {
+      console.warn("非数组格式的AI测试用例:", array);
+      return {
+        name: "格式错误",
+        parameters: {},
+        body: null,
+        expectedStatus: 400
+      };
+    }
+    
+    // 提取测试用例名称和预期状态码
+    let name = array[0] || "测试用例";
+    
+    // 尝试从数组最后一个元素中提取状态码
+    let expectedStatus = 200;
+    const lastElement = array[array.length - 1];
+    if (typeof lastElement === 'number') {
+      expectedStatus = lastElement;
+      // 移除已处理的状态码
+      array = array.slice(0, -1);
+    } else if (typeof lastElement === 'string' && /^\d{3}$/.test(lastElement)) {
+      expectedStatus = parseInt(lastElement);
+      // 移除已处理的状态码
+      array = array.slice(0, -1);
+    }
+    
+    // 移除已处理的名称
+    const dataArray = array.slice(1);
+    
+    // 根据API方法创建请求参数
+    if (props.selectedPath.method === 'GET' || props.selectedPath.method === 'DELETE') {
+      // 对于GET和DELETE请求，创建查询参数对象
       const parameters = {};
-      if (props.selectedPath.method === 'GET' || props.selectedPath.method === 'DELETE') {
-        // 对于GET和DELETE请求，添加必要的查询参数
-        if (props.selectedPath.path.includes('/get') || props.selectedPath.path.includes('/delete')) {
-          parameters.id = "test_id";
+      
+      // 获取API操作对象
+      const operation = props.api.paths[props.selectedPath.path][props.selectedPath.method.toLowerCase()];
+      const apiParams = operation.parameters || [];
+      const queryParams = apiParams.filter(p => p.in === 'query' || p.in === 'path');
+      
+      // 将数组值映射到参数名
+      queryParams.forEach((param, index) => {
+        if (index < dataArray.length) {
+          parameters[param.name] = dataArray[index];
         }
-      }
+      });
       
       return {
         name,
         parameters,
-        body,
-        expectedStatus: parseInt(expectedStatus) || 200
+        body: null,
+        expectedStatus
       };
-    } else {
-      // 默认转换方式
-      const [name, ...rest] = array;
-      const expectedStatus = parseInt(rest.pop()) || 200;
+    } else if (props.selectedPath.method === 'POST' || props.selectedPath.method === 'PUT' || props.selectedPath.method === 'PATCH') {
+      // 对于POST/PUT/PATCH请求，创建请求体对象
+      const body = {};
+      
+      // 获取API操作对象
+      const operation = props.api.paths[props.selectedPath.path][props.selectedPath.method.toLowerCase()];
+      
+      // 获取请求体信息
+      let requestBodySchema = null;
+      let bodyProperties = [];
+      
+      // 处理requestBody，兼容Swagger 2.0和3.0
+      if (operation.requestBody && operation.requestBody.content && operation.requestBody.content['application/json']) {
+        requestBodySchema = operation.requestBody.content['application/json'].schema;
+      } else if (operation.parameters && operation.parameters.some(param => param.in === 'body' && param.schema)) {
+        // Swagger 2.0 风格的请求体参数
+        requestBodySchema = operation.parameters.find(param => param.in === 'body').schema;
+      }
+      
+      // 解析请求体schema的属性
+      if (requestBodySchema) {
+        if (requestBodySchema.$ref) {
+          // 处理引用
+          const refName = requestBodySchema.$ref.split('/').pop();
+          const schema = props.api.definitions?.[refName] || 
+                        (props.api.components?.schemas?.[refName]);
+          
+          if (schema && schema.properties) {
+            bodyProperties = Object.entries(schema.properties).map(([name, prop]) => {
+              return {
+                name,
+                type: prop.type,
+                required: schema.required?.includes(name) || false
+              };
+            });
+          }
+        } else if (requestBodySchema.properties) {
+          // 直接处理属性
+          bodyProperties = Object.entries(requestBodySchema.properties).map(([name, prop]) => {
+            return {
+              name,
+              type: prop.type,
+              required: requestBodySchema.required?.includes(name) || false
+            };
+          });
+        }
+      }
+      
+      // 将数组值映射到请求体属性
+      bodyProperties.forEach((prop, index) => {
+        if (index < dataArray.length) {
+          // 设置请求体属性值，尝试根据类型进行转换
+          let value = dataArray[index];
+          
+          // 尝试转换值类型
+          if (prop.type === 'number' || prop.type === 'integer') {
+            // 对于数字类型，将字符串转换为数字
+            if (typeof value === 'string' && !isNaN(Number(value))) {
+              value = Number(value);
+            }
+          } else if (prop.type === 'boolean') {
+            // 对于布尔类型，转换为布尔值
+            if (typeof value === 'string') {
+              value = value.toLowerCase() === 'true';
+            }
+          }
+          
+          body[prop.name] = value;
+        }
+      });
       
       return {
         name,
         parameters: {},
-        body: rest.length > 0 ? { values: rest } : null,
+        body,
         expectedStatus
       };
     }
+    
+    // 默认情况，返回简单的测试用例对象
+    return {
+      name,
+      parameters: {},
+      body: dataArray.length > 0 ? { values: dataArray } : null,
+      expectedStatus
+    };
   });
 };
 

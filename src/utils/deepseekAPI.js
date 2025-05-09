@@ -6,6 +6,57 @@ import axios from 'axios';
 const API_KEY = import.meta.env.VITE_DEEPSEEK_API_KEY || '';
 
 /**
+ * 动态加载指南文档
+ * @returns {Promise<Object>} - 包含三个文档内容的对象
+ */
+async function loadGuideDocs() {
+  try {
+    // 尝试加载三个文档
+    const guidePromise = fetch('/接口测试用例生成指南.md').then(res => res.text());
+    const promptPromise = fetch('/接口用例调教提示词.md').then(res => res.text());
+    const templatePromise = fetch('/接口用例参考模板.md').then(res => res.text());
+    
+    // 等待所有文档加载完成
+    const [guide, prompt, template] = await Promise.all([guidePromise, promptPromise, templatePromise]);
+    
+    return { guide, prompt, template };
+  } catch (error) {
+    console.warn('加载指南文档失败，将使用内置文档:', error);
+    
+    // 返回默认内置文档
+    return {
+      guide: `# Role: 接口测试用例生成专家
+
+## Profile
+- language: 中文
+- description: 专业的接口测试用例生成专家，能够根据接口文档自动生成全面、规范的测试用例
+- background: 拥有5年以上软件测试经验，精通RESTful API测试方法论
+- personality: 严谨细致，逻辑性强，注重细节
+- expertise: 接口测试、边界值分析、异常场景设计、测试用例编写
+- target_audience: 测试工程师、开发人员、质量保障团队`,
+      
+      prompt: `## Skills
+
+1. 测试用例设计
+   - 边界值分析: 准确识别参数边界条件
+   - 等价类划分: 合理划分输入参数等价类
+   - 异常场景设计: 全面覆盖各种异常情况
+   - 组合测试: 设计多参数组合测试场景`,
+      
+      template: `### 1. 创建学校接口 \`/admin-api/tcom/school/create\`
+
+**请求方式**：POST
+**请求体**：SchoolSaveReqVO
+**必填参数**：id, schoolName, schoolType, isHaveCard, schoolAddress, schoolLonLat
+
+|        场景        |                            参数值                            | 响应状态码 |         补充说明         |
+| :----------------: | :----------------------------------------------------------: | :--------: | :----------------------: |
+|      正常用例      | {"id":"29932","schoolName":"洁兔","schoolType":1,"isHaveCard":1,"schoolAddress":"杭州市","schoolLonLat":"120.188966,30.346182"} |    200     |                          |`
+    };
+  }
+}
+
+/**
  * 调用DeepSeek API生成测试用例
  * @param {Object} swaggerDoc - Swagger文档对象
  * @param {Object} apiPath - API路径信息
@@ -22,8 +73,11 @@ export async function generateTestCasesWithAI(swaggerDoc, apiPath, template, tem
       throw new Error('DeepSeek API密钥未设置。请在.env文件中设置VITE_DEEPSEEK_API_KEY变量，或提供临时API密钥。');
     }
 
-    // 构建提示词
-    const prompt = constructPrompt(swaggerDoc, apiPath, template);
+    // 加载指南文档
+    const guideDocs = await loadGuideDocs();
+    
+    // 构建提示词，每次都使用最新的文档内容
+    const prompt = constructPrompt(swaggerDoc, apiPath, template, guideDocs);
     
     try {
       // 调用DeepSeek API
@@ -32,7 +86,10 @@ export async function generateTestCasesWithAI(swaggerDoc, apiPath, template, tem
         {
           model: 'deepseek-chat',
           messages: [
-            { role: 'system', content: '你是一个API测试专家，擅长生成全面的API测试用例。' },
+            { 
+              role: 'system', 
+              content: '你是一个接口测试用例生成专家，擅长根据接口规范生成全面的测试用例。你将严格按照提供的指南和模板生成测试用例，确保覆盖所有必要的测试场景。' 
+            },
             { role: 'user', content: prompt }
           ],
           temperature: 0.7,
@@ -119,9 +176,10 @@ function generateFallbackTestCases(apiPath, template) {
  * @param {Object} swaggerDoc - Swagger文档对象
  * @param {Object} apiPath - API路径信息
  * @param {string} template - 测试用例模板描述
+ * @param {Object} guideDocs - 指南文档内容对象
  * @returns {string} - 构建好的提示词
  */
-function constructPrompt(swaggerDoc, apiPath, template) {
+function constructPrompt(swaggerDoc, apiPath, template, guideDocs) {
   const { path, method, summary, description } = apiPath;
   const operation = swaggerDoc.paths[path][method.toLowerCase()];
   
@@ -183,7 +241,11 @@ function constructPrompt(swaggerDoc, apiPath, template) {
   
   // 构建提示词
   return `
-请根据以下API信息，生成符合模板的测试用例数组：
+${guideDocs.guide}
+
+${guideDocs.prompt}
+
+请根据以下API信息，参考上述指南和以下参考模板，生成符合模板的测试用例数组：
 
 API路径: ${path}
 HTTP方法: ${method}
@@ -198,7 +260,10 @@ ${requestBodyDesc}
 响应信息:
 ${responseDesc || '无响应描述'}
 
-测试用例模板样例:
+参考的测试用例模板格式示例:
+${guideDocs.template}
+
+测试用例数组模板:
 ${template}
 
 请按照上述模板格式，生成一系列全面的测试用例，包括但不限于：
