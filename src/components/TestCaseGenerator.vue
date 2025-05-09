@@ -17,7 +17,7 @@
       <el-button @click="executeTestCases" :disabled="!testCases.length">执行测试</el-button>
       <el-dropdown @command="handleExport" trigger="click">
         <el-button :disabled="!testCases.length">
-          导出 <el-icon class="el-icon--right"><arrow-down /></el-icon>
+          导出 <el-icon class="el-icon--right"><Download /></el-icon>
         </el-button>
         <template #dropdown>
           <el-dropdown-menu>
@@ -177,7 +177,7 @@
 
 <script setup>
 import { ref, computed, watch } from 'vue';
-import { ArrowDown } from '@element-plus/icons-vue';
+import { Document, Download } from '@element-plus/icons-vue';
 import { generateTestCases, formatTestCasesForDisplay, convertTestCasesToArray } from '../utils/swaggerParser';
 import { generateTestCasesWithAI } from '../utils/deepseekAPI';
 import { ElMessage, ElNotification } from 'element-plus';
@@ -193,6 +193,8 @@ const props = defineProps({
     default: null
   }
 });
+
+const emit = defineEmits(['test-cases-generated', 'error']);
 
 const testCases = ref([]);
 const formattedTestCases = ref([]);
@@ -394,10 +396,26 @@ const generateTemplateForPath = (path) => {
 - ["异常场景", 400]`;
 };
 
-// 监听选择的路径变化，自动生成对应模板
+// 监听选中路径的变化，自动生成测试用例
 watch(() => props.selectedPath, (newPath) => {
   if (newPath) {
-    aiTemplate.value = generateTemplateForPath(newPath);
+    try {
+      testCases.value = [];
+      formattedTestCases.value = [];
+      testResults.value = [];
+      currentTestResult.value = null;
+      
+      // 自动生成测试用例
+      const cases = generateTestCases(props.api, newPath);
+      testCases.value = cases;
+      formattedTestCases.value = formatTestCasesForDisplay(cases);
+      
+      // 发送生成的测试用例数量
+      emit('test-cases-generated', cases.length);
+    } catch (error) {
+      console.error('自动生成测试用例时出错:', error);
+      emit('error', error);
+    }
   }
 }, { immediate: true });
 
@@ -406,454 +424,168 @@ const showGenerateOptions = () => {
   generateOptionsVisible.value = true;
 };
 
-// 根据选择的方法生成测试用例
+// 使用选定方法生成测试用例
 const generateCasesWithSelectedMethod = async () => {
-  generateOptionsVisible.value = false;
-  isGenerating.value = true;
-  
   try {
+    isGenerating.value = true;
+    
     if (generationMethod.value === 'standard') {
       // 使用标准方法生成
-      await generateCases();
-    } else {
-      // 使用AI方法生成
-      await generateCasesWithAI();
+      const cases = generateTestCases(props.api, props.selectedPath);
+      testCases.value = cases;
+      formattedTestCases.value = formatTestCasesForDisplay(cases);
+      
+      generateOptionsVisible.value = false;
+      ElMessage.success(`成功生成 ${cases.length} 个测试用例`);
+      
+      // 发送生成的测试用例数量
+      emit('test-cases-generated', cases.length);
+    } else if (generationMethod.value === 'ai') {
+      // 使用AI生成
+      generateOptionsVisible.value = false;
+      aiGeneratingVisible.value = true;
+      
+      let apiKey = hasApiKey.value ? import.meta.env.VITE_DEEPSEEK_API_KEY : tempApiKey.value;
+      
+      if (!apiKey) {
+        aiGeneratingVisible.value = false;
+        ElMessage.error('缺少API密钥，无法使用AI生成测试用例');
+        emit('error', new Error('缺少API密钥，无法使用AI生成测试用例'));
+        isGenerating.value = false;
+        return;
+      }
+      
+      try {
+        const aiCases = await generateTestCasesWithAI(props.api, props.selectedPath, aiTemplate.value, apiKey);
+        testCases.value = aiCases;
+        formattedTestCases.value = formatTestCasesForDisplay(aiCases);
+        
+        aiGeneratingVisible.value = false;
+        ElMessage.success(`AI成功生成 ${aiCases.length} 个测试用例`);
+        
+        // 发送生成的测试用例数量
+        emit('test-cases-generated', aiCases.length);
+      } catch (aiError) {
+        aiGeneratingVisible.value = false;
+        console.error('AI生成测试用例时出错:', aiError);
+        ElMessage.error('AI生成测试用例失败: ' + (aiError.message || '未知错误'));
+        emit('error', aiError);
+      }
     }
   } catch (error) {
-    ElMessage.error(`生成测试用例失败: ${error.message}`);
+    console.error('生成测试用例时出错:', error);
+    ElMessage.error('生成测试用例失败: ' + (error.message || '未知错误'));
+    emit('error', error);
   } finally {
     isGenerating.value = false;
   }
 };
 
-// 生成标准测试用例
-const generateCases = async () => {
-  if (!props.selectedPath) return;
-  
-  // 生成测试用例
-  testCases.value = generateTestCases(props.api, props.selectedPath);
-  
-  // 格式化用于显示
-  formattedTestCases.value = formatTestCasesForDisplay(testCases.value);
-  
-  // 清除之前的测试结果
-  testResults.value = [];
-  currentTestResult.value = null;
-  
-  ElMessage.success('已生成测试用例');
-};
-
-// 使用AI生成测试用例
-const generateCasesWithAI = async () => {
-  if (!props.selectedPath) return;
-  
-  try {
-    // 显示加载对话框
-    aiGeneratingVisible.value = true;
-    
-    // 使用DeepSeek API生成测试用例
-    const aiTestCases = await generateTestCasesWithAI(
-      props.api,
-      props.selectedPath,
-      aiTemplate.value,
-      tempApiKey.value // 传递临时API密钥
-    );
-    
-    if (Array.isArray(aiTestCases) && aiTestCases.length > 0) {
-      // 将AI生成的测试用例转换为应用内部格式
-      if (typeof aiTestCases[0] === 'object' && aiTestCases[0].name) {
-        // 已经是对象格式
-        testCases.value = aiTestCases;
-      } else {
-        // 数组格式，需要转换
-        testCases.value = convertAIArrayToTestCases(aiTestCases);
-      }
-      
-      // 格式化用于显示
-      formattedTestCases.value = formatTestCasesForDisplay(testCases.value);
-      
-      // 清除之前的测试结果
-      testResults.value = [];
-      currentTestResult.value = null;
-      
-      ElNotification({
-        title: '成功',
-        message: `AI已生成 ${testCases.value.length} 个测试用例`,
-        type: 'success',
-        duration: 3000
-      });
-    } else {
-      console.log(aiTestCases);
-      
-      // 记录AI返回数据的类型和格式
-      console.log('AI返回数据类型:', typeof aiTestCases);
-      if (typeof aiTestCases === 'string') {
-        console.log('AI返回了字符串格式数据，尝试解析为JSON');
-        try {
-          const parsed = JSON.parse(aiTestCases);
-          console.log('解析后的数据:', parsed);
-          aiTestCases = parsed;
-        } catch (err) {
-          console.error('解析AI返回的字符串为JSON失败:', err);
-        }
-      } else if (Array.isArray(aiTestCases)) {
-        console.log('AI返回了数组格式数据，数组长度:', aiTestCases.length);
-        if (aiTestCases.length > 0) {
-          console.log('第一个元素类型:', typeof aiTestCases[0]);
-          console.log('第一个元素值:', aiTestCases[0]);
-        }
-      } else if (typeof aiTestCases === 'object') {
-        console.log('AI返回了对象格式数据:', Object.keys(aiTestCases));
-      }
-      
-      throw new Error('AI返回的测试用例格式不正确');
-    }
-  } catch (error) {
-    console.error('AI生成测试用例失败:', error);
-    ElNotification({
-      title: '错误',
-      message: `AI生成测试用例失败: ${error.message}`,
-      type: 'error',
-      duration: 5000
-    });
-  } finally {
-    // 关闭加载对话框
-    aiGeneratingVisible.value = false;
-  }
-};
-
-// 将AI生成的数组格式转换为测试用例对象
-const convertAIArrayToTestCases = (aiArrays) => {
-  // 先确保aiArrays是数组
-  if (!Array.isArray(aiArrays)) {
-    console.warn("AI返回的数据不是数组格式:", aiArrays);
-    
-    // 如果是字符串，尝试解析为JSON
-    if (typeof aiArrays === 'string') {
-      try {
-        const parsed = JSON.parse(aiArrays);
-        if (Array.isArray(parsed)) {
-          aiArrays = parsed;
-        } else {
-          return [{
-            name: "AI返回格式错误",
-            parameters: {},
-            body: null,
-            expectedStatus: 400
-          }];
-        }
-      } catch (e) {
-        console.error("无法解析AI返回的字符串为JSON:", e);
-        return [{
-          name: "AI返回格式错误",
-          parameters: {},
-          body: null,
-          expectedStatus: 400
-        }];
-      }
-    } else {
-      return [{
-        name: "AI返回格式错误",
-        parameters: {},
-        body: null,
-        expectedStatus: 400
-      }];
-    }
-  }
-  
-  // 处理数组格式的测试用例
-  return aiArrays.map(array => {
-    // 检查是否已经是测试用例对象格式
-    if (typeof array === 'object' && !Array.isArray(array) && array.name) {
-      return array;
-    }
-    
-    // 通用转换逻辑，基于API方法和参数结构
-    if (!Array.isArray(array)) {
-      console.warn("非数组格式的AI测试用例:", array);
-      return {
-        name: typeof array === 'string' ? array : "格式错误",
-        parameters: {},
-        body: null,
-        expectedStatus: 400
-      };
-    }
-    
-    // 提取测试用例名称和预期状态码
-    let name = array[0] || "测试用例";
-    
-    // 尝试从数组最后一个元素中提取状态码
-    let expectedStatus = 200;
-    const lastElement = array[array.length - 1];
-    if (typeof lastElement === 'number') {
-      expectedStatus = lastElement;
-      // 移除已处理的状态码
-      array = array.slice(0, -1);
-    } else if (typeof lastElement === 'string' && /^\d{3}$/.test(lastElement)) {
-      expectedStatus = parseInt(lastElement);
-      // 移除已处理的状态码
-      array = array.slice(0, -1);
-    }
-    
-    // 移除已处理的名称
-    const dataArray = array.slice(1);
-    
-    // 根据API方法创建请求参数
-    if (props.selectedPath.method === 'GET' || props.selectedPath.method === 'DELETE') {
-      // 对于GET和DELETE请求，创建查询参数对象
-      const parameters = {};
-      
-      // 获取API操作对象
-      const operation = props.api.paths[props.selectedPath.path][props.selectedPath.method.toLowerCase()];
-      const apiParams = operation.parameters || [];
-      const queryParams = apiParams.filter(p => p.in === 'query' || p.in === 'path');
-      
-      // 将数组值映射到参数名
-      queryParams.forEach((param, index) => {
-        if (index < dataArray.length) {
-          parameters[param.name] = dataArray[index];
-        }
-      });
-      
-      // 提取或创建补充说明
-      let description = '';
-      if (array.length > 2) {
-        // 尝试从数组中搜索可能的补充说明，通常可能在第一个或最后一个元素后
-        const possibleDescriptions = array.filter(item => 
-          typeof item === 'string' && 
-          !item.match(/^\d{3}$/) && // 不是状态码
-          item !== name && // 不是名称
-          !Object.values(parameters).includes(item) // 不是参数值
-        );
-        
-        if (possibleDescriptions.length > 0) {
-          description = possibleDescriptions[0];
-        }
-      }
-      
-      return {
-        name,
-        parameters,
-        body: null,
-        expectedStatus,
-        description
-      };
-    } else if (props.selectedPath.method === 'POST' || props.selectedPath.method === 'PUT' || props.selectedPath.method === 'PATCH') {
-      // 对于POST/PUT/PATCH请求，创建请求体对象
-      const body = {};
-      
-      // 获取API操作对象
-      const operation = props.api.paths[props.selectedPath.path][props.selectedPath.method.toLowerCase()];
-      
-      // 获取请求体信息
-      let requestBodySchema = null;
-      let bodyProperties = [];
-      
-      // 处理requestBody，兼容Swagger 2.0和3.0
-      if (operation.requestBody && operation.requestBody.content && operation.requestBody.content['application/json']) {
-        requestBodySchema = operation.requestBody.content['application/json'].schema;
-      } else if (operation.parameters && operation.parameters.some(param => param.in === 'body' && param.schema)) {
-        // Swagger 2.0 风格的请求体参数
-        requestBodySchema = operation.parameters.find(param => param.in === 'body').schema;
-      }
-      
-      // 解析请求体schema的属性
-      if (requestBodySchema) {
-        if (requestBodySchema.$ref) {
-          // 处理引用
-          const refName = requestBodySchema.$ref.split('/').pop();
-          const schema = props.api.definitions?.[refName] || 
-                        (props.api.components?.schemas?.[refName]);
-          
-          if (schema && schema.properties) {
-            bodyProperties = Object.entries(schema.properties).map(([name, prop]) => {
-              return {
-                name,
-                type: prop.type,
-                required: schema.required?.includes(name) || false
-              };
-            });
-          }
-        } else if (requestBodySchema.properties) {
-          // 直接处理属性
-          bodyProperties = Object.entries(requestBodySchema.properties).map(([name, prop]) => {
-            return {
-              name,
-              type: prop.type,
-              required: requestBodySchema.required?.includes(name) || false
-            };
-          });
-        }
-      }
-      
-      // 尝试直接使用JSON对象
-      if (dataArray.length === 1 && typeof dataArray[0] === 'object' && !Array.isArray(dataArray[0])) {
-        // 提取或创建补充说明
-        let description = '';
-        // 搜索不是状态码或名称的字符串元素，作为可能的补充说明
-        const possibleDescriptions = array.filter(item => 
-          typeof item === 'string' && 
-          !item.match(/^\d{3}$/) && // 不是状态码
-          item !== name // 不是名称
-        );
-        
-        if (possibleDescriptions.length > 0) {
-          description = possibleDescriptions[0];
-        }
-        
-        return {
-          name,
-          parameters: {},
-          body: dataArray[0],
-          expectedStatus,
-          description
-        };
-      }
-      
-      // 将数组值映射到请求体属性
-      bodyProperties.forEach((prop, index) => {
-        if (index < dataArray.length) {
-          // 设置请求体属性值，尝试根据类型进行转换
-          let value = dataArray[index];
-          
-          // 忽略undefined和null值，除非是显式的null测试
-          if (value === undefined || (value === '' && prop.type !== 'string')) {
-            return;
-          }
-          
-          // 尝试转换值类型
-          if (prop.type === 'number' || prop.type === 'integer') {
-            // 对于数字类型，将字符串转换为数字
-            if (typeof value === 'string') {
-              if (value.toLowerCase() === 'null' || value === '') {
-                value = null;
-              } else if (!isNaN(Number(value))) {
-                value = Number(value);
-              }
-            }
-          } else if (prop.type === 'boolean') {
-            // 对于布尔类型，转换为布尔值
-            if (typeof value === 'string') {
-              if (value.toLowerCase() === 'true') {
-                value = true;
-              } else if (value.toLowerCase() === 'false') {
-                value = false;
-              } else if (value.toLowerCase() === 'null' || value === '') {
-                value = null;
-              }
-            }
-          } else if (prop.type === 'string' && value === null) {
-            // 对于字符串类型，将null转换为空字符串
-            value = '';
-          }
-          
-          body[prop.name] = value;
-        }
-      });
-      
-      // 提取或创建补充说明
-      let description = '';
-      if (array.length > 2) {
-        // 尝试从数组中搜索可能的补充说明，通常可能在第一个或最后一个元素后
-        const possibleDescriptions = array.filter(item => 
-          typeof item === 'string' && 
-          !item.match(/^\d{3}$/) && // 不是状态码
-          item !== name && // 不是名称
-          !Object.values(body).includes(item) // 不是请求体中的值
-        );
-        
-        if (possibleDescriptions.length > 0) {
-          description = possibleDescriptions[0];
-        }
-      }
-      
-      return {
-        name,
-        parameters: {},
-        body,
-        expectedStatus,
-        description
-      };
-    }
-    
-    // 默认情况，返回简单的测试用例对象
-    return {
-      name,
-      parameters: {},
-      body: dataArray.length > 0 ? { values: dataArray } : null,
-      expectedStatus,
-      description: array.length > 2 ? array.find(item => 
-        typeof item === 'string' && 
-        !item.match(/^\d{3}$/) && // 不是状态码
-        item !== name // 不是名称
-      ) || '' : ''
-    };
-  });
-};
-
 // 执行测试用例
 const executeTestCases = async () => {
-  if (!testCases.value.length || isExecuting.value) return;
-  
-  isExecuting.value = true;
-  testResults.value = [];
-  currentTestResult.value = null;
+  if (testCases.value.length === 0) {
+    ElMessage.warning('没有可执行的测试用例');
+    return;
+  }
   
   try {
-    // 假设执行第一个测试用例
-    const testCase = testCases.value[0];
+    // 清空之前的测试结果
+    testResults.value = [];
+    currentTestResult.value = null;
     
-    // 创建URL（这里仅作演示，实际可能需要基础URL配置）
-    const url = props.selectedPath.path;
+    const baseUrl = 'https://example.com/api'; // 这里应替换为实际的API基础URL
     
-    // 记录开始时间
-    const startTime = Date.now();
-    
-    // 这里实际项目中应该发送真实请求
-    // 由于这是前端项目，我们模拟一个响应
-    // const response = await axios({
-    //   method: props.selectedPath.method.toLowerCase(),
-    //   url,
-    //   params: props.selectedPath.method === 'GET' ? testCase.parameters : undefined,
-    //   data: testCase.body,
-    //   headers: { 'Content-Type': 'application/json' }
-    // });
-    
-    // 模拟响应
-    const mockResponse = {
-      status: testCase.expectedStatus,
-      data: {
-        code: 0,
-        msg: "操作成功",
-        data: testCase.expectedStatus === 200 ? true : null
+    // 询问用户API基础URL
+    const { value: customBaseUrl } = await ElMessageBox.prompt(
+      '请输入API的基础URL，所有测试请求将发送到此URL',
+      '设置API基础URL',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        inputPattern: /^https?:\/\/.+/,
+        inputErrorMessage: '请输入有效的URL (以http://或https://开头)',
+        inputValue: baseUrl
       }
-    };
-    
-    // 计算耗时
-    const duration = Date.now() - startTime;
-    
-    // 保存测试结果
-    const result = {
-      status: mockResponse.status,
-      expectedStatus: testCase.expectedStatus,
-      duration,
-      data: mockResponse.data
-    };
-    
-    testResults.value.push(result);
-    currentTestResult.value = result;
-    
-  } catch (error) {
-    console.error('执行测试时出错:', error);
-    // 保存错误结果
-    testResults.value.push({
-      status: error.response?.status || 500,
-      expectedStatus: testCases.value[0].expectedStatus,
-      duration: 0,
-      data: error.response?.data || { error: error.message }
+    ).catch(() => {
+      return { value: null };
     });
-  } finally {
-    isExecuting.value = false;
+    
+    if (!customBaseUrl) return;
+    
+    // 转换测试用例为数组格式
+    const testCasesArray = convertTestCasesToArray(testCases.value, props.api, props.selectedPath);
+    
+    // 显示执行进度通知
+    const notification = ElNotification({
+      title: '测试执行中',
+      message: `正在执行 ${testCasesArray.length} 个测试用例`,
+      type: 'info',
+      duration: 0
+    });
+    
+    // 逐个执行测试用例
+    for (let i = 0; i < testCasesArray.length; i++) {
+      const testCase = testCasesArray[i];
+      const { method, url, headers, body, expectedStatus } = testCase;
+      
+      try {
+        const startTime = Date.now();
+        const response = await axios({
+          method: method.toLowerCase(),
+          url: `${customBaseUrl}${url}`,
+          headers,
+          data: body
+        });
+        
+        const duration = Date.now() - startTime;
+        
+        // 添加测试结果
+        testResults.value.push({
+          status: response.status,
+          expectedStatus,
+          data: response.data,
+          duration,
+          pass: response.status === expectedStatus
+        });
+        
+        // 更新当前查看的测试结果
+        currentTestResult.value = testResults.value[testResults.value.length - 1];
+      } catch (error) {
+        // 处理请求错误
+        const status = error.response ? error.response.status : 0;
+        const data = error.response ? error.response.data : { error: error.message };
+        const duration = 0;
+        
+        testResults.value.push({
+          status,
+          expectedStatus,
+          data,
+          duration,
+          pass: status === expectedStatus
+        });
+        
+        currentTestResult.value = testResults.value[testResults.value.length - 1];
+      }
+    }
+    
+    // 关闭通知
+    notification.close();
+    
+    // 计算测试通过率
+    const passCount = testResults.value.filter(result => result.pass).length;
+    const passRate = Math.round((passCount / testResults.value.length) * 100);
+    
+    // 显示测试结果通知
+    ElNotification({
+      title: '测试执行完成',
+      message: `通过率: ${passRate}% (${passCount}/${testResults.value.length})`,
+      type: passRate === 100 ? 'success' : passRate >= 60 ? 'warning' : 'error',
+      duration: 5000
+    });
+  } catch (error) {
+    console.error('执行测试用例时出错:', error);
+    ElMessage.error('执行测试失败: ' + (error.message || '未知错误'));
+    emit('error', error);
   }
 };
 
