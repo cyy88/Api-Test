@@ -106,10 +106,10 @@
         <el-table-column label="参数" min-width="200">
           <template #default="scope">
             <div v-if="scope.row.parameters && scope.row.parameters !== '{}'" class="formatted-json">
-              <template v-for="(value, key) in parseJsonSafely(scope.row.parameters)" :key="key">
-                <div class="param-item">
-                  <span class="param-name">{{ key }}:</span>
-                  <span class="param-value">{{ value }}</span>
+              <template v-for="item in formatNestedJson(parseJsonSafely(scope.row.parameters))" :key="item.key">
+                <div class="param-item" :style="{ paddingLeft: item.level * 10 + 'px' }">
+                  <span class="param-name" :class="{ 'parent-node': item.isParent }">{{ item.key }}</span>
+                  <span v-if="item.value" class="param-value">{{ item.value }}</span>
                 </div>
               </template>
             </div>
@@ -120,10 +120,10 @@
         <el-table-column label="请求体" min-width="300">
           <template #default="scope">
             <div v-if="scope.row.body && scope.row.body !== '{}'" class="formatted-json">
-              <template v-for="(value, key) in parseJsonSafely(scope.row.body)" :key="key">
-                <div class="param-item">
-                  <span class="param-name">{{ key }}:</span>
-                  <span class="param-value">{{ typeof value === 'object' ? JSON.stringify(value) : value }}</span>
+              <template v-for="item in formatNestedJson(parseJsonSafely(scope.row.body))" :key="item.key">
+                <div class="param-item" :style="{ paddingLeft: item.level * 10 + 'px' }">
+                  <span class="param-name" :class="{ 'parent-node': item.isParent }">{{ item.key }}</span>
+                  <span v-if="item.value" class="param-value">{{ item.value }}</span>
                 </div>
               </template>
             </div>
@@ -413,6 +413,42 @@ const parseJsonSafely = (jsonString) => {
   }
 };
 
+// 增加一个函数来递归处理嵌套的JSON对象显示
+const formatNestedJson = (obj, level = 0) => {
+  if (!obj || typeof obj !== 'object') return [];
+  
+  const indent = '  '.repeat(level);
+  const result = [];
+  
+  Object.entries(obj).forEach(([key, value]) => {
+    if (value === null) {
+      result.push({
+        key: `${indent}${key}:`, 
+        value: 'null',
+        level
+      });
+    } else if (typeof value === 'object') {
+      result.push({
+        key: `${indent}${key}:`, 
+        value: '',
+        level,
+        isParent: true
+      });
+      
+      const children = formatNestedJson(value, level + 1);
+      result.push(...children);
+    } else {
+      result.push({
+        key: `${indent}${key}:`, 
+        value: String(value),
+        level
+      });
+    }
+  });
+  
+  return result;
+};
+
 // 修改 watch 函数来更安全地处理测试用例
 watch(() => props.selectedPath, (newPath) => {
   if (newPath) {
@@ -499,20 +535,115 @@ const generateCasesWithSelectedMethod = async () => {
       }
       
       try {
-        const aiCases = await generateTestCasesWithAI(props.api, props.selectedPath, aiTemplate.value, apiKey);
+        let aiCases = await generateTestCasesWithAI(props.api, props.selectedPath, aiTemplate.value, apiKey);
+        
+        // 检查AI返回的测试用例格式
+        if (!Array.isArray(aiCases)) {
+          console.error('AI返回的测试用例不是数组:', aiCases);
+          ElMessage.warning('AI返回的数据格式有误，尝试自动修复...');
+          
+          // 尝试转换为数组格式
+          if (aiCases && typeof aiCases === 'object') {
+            aiCases = Object.entries(aiCases).map(([key, value]) => {
+              if (typeof value === 'object') {
+                return [key, value, 200];
+              } else {
+                return [key, { value }, 200];
+              }
+            });
+          } else {
+            // 如果无法转换，使用简单格式
+            aiCases = [['AI生成失败，使用默认测试用例', {}, 200]];
+          }
+        }
+        
+        // 空数组检查
+        if (aiCases.length === 0) {
+          ElMessage.warning('AI未生成任何测试用例，使用默认测试用例');
+          aiCases = [['默认测试用例', {}, 200]];
+        }
+        
+        // 检查数组中的每个测试用例格式
+        aiCases = aiCases.map(testCase => {
+          if (Array.isArray(testCase)) {
+            // 保留数组格式
+            return testCase;
+          } else if (typeof testCase === 'object' && testCase !== null) {
+            // 对象格式转换为数组格式
+            const name = testCase.name || testCase.productName || '未命名测试';
+            const status = testCase.expectedStatus || testCase.statusCode || 200;
+            return [name, testCase, status];
+          } else if (typeof testCase === 'string') {
+            // 字符串转换为简单测试用例
+            return [testCase, {}, 200];
+          } else {
+            // 其他格式使用默认值
+            return ['未知格式测试用例', {}, 200];
+          }
+        });
+        
         testCases.value = aiCases;
         
         try {
           formattedTestCases.value = formatTestCasesForDisplay(aiCases);
+          
+          // 检查格式化后是否为空或无效
+          if (!formattedTestCases.value || formattedTestCases.value.length === 0) {
+            throw new Error('格式化后的测试用例为空');
+          }
+          
+          // 检查每个格式化后的测试用例是否有必要的字段
+          const invalidCase = formattedTestCases.value.find(c => !c.name || c.name === '格式化错误的测试用例');
+          if (invalidCase) {
+            throw new Error('存在格式化错误的测试用例');
+          }
         } catch (formatError) {
           console.error('格式化AI生成的测试用例时出错:', formatError);
-          formattedTestCases.value = aiCases.map(c => ({
-            name: c.name || '未命名测试',
-            parameters: typeof c.parameters === 'string' ? c.parameters : JSON.stringify(c.parameters || {}),
-            body: typeof c.body === 'string' ? c.body : JSON.stringify(c.body || {}),
-            expectedStatus: c.expectedStatus || 200,
-            description: c.description || ''
-          }));
+          
+          // 创建一个更安全的映射函数
+          const safeMap = (tc) => {
+            try {
+              if (Array.isArray(tc)) {
+                return {
+                  name: tc[0] || '未命名测试',
+                  parameters: tc.length > 1 && typeof tc[1] === 'object' ? 
+                    JSON.stringify(tc[1]) : '{}',
+                  body: tc.length > 1 && typeof tc[1] === 'object' ? 
+                    JSON.stringify(tc[1]) : '{}',
+                  expectedStatus: tc.length > 2 && typeof tc[2] === 'number' ? 
+                    tc[2] : 200,
+                  description: ''
+                };
+              } else if (typeof tc === 'object' && tc !== null) {
+                return {
+                  name: tc.name || tc.productName || '未命名测试',
+                  parameters: JSON.stringify(tc.parameters || {}),
+                  body: JSON.stringify(tc.body || tc),
+                  expectedStatus: tc.expectedStatus || 200,
+                  description: tc.description || ''
+                };
+              } else {
+                return {
+                  name: typeof tc === 'string' ? tc : '未命名测试',
+                  parameters: '{}',
+                  body: '{}',
+                  expectedStatus: 200,
+                  description: ''
+                };
+              }
+            } catch (e) {
+              console.error('安全映射测试用例失败:', e);
+              return {
+                name: '格式化失败的测试用例',
+                parameters: '{}',
+                body: '{}',
+                expectedStatus: 200,
+                description: '数据格式错误'
+              };
+            }
+          };
+          
+          formattedTestCases.value = aiCases.map(safeMap);
         }
         
         aiGeneratingVisible.value = false;
@@ -523,8 +654,19 @@ const generateCasesWithSelectedMethod = async () => {
       } catch (aiError) {
         aiGeneratingVisible.value = false;
         console.error('AI生成测试用例时出错:', aiError);
-        ElMessage.error('AI生成测试用例失败: ' + (aiError.message || '未知错误'));
-        emit('error', aiError);
+        
+        // 尝试使用标准方式生成备用测试用例
+        try {
+          ElMessage.warning('AI生成失败，使用标准方法生成');
+          const fallbackCases = generateTestCases(props.api, props.selectedPath);
+          testCases.value = fallbackCases;
+          formattedTestCases.value = formatTestCasesForDisplay(fallbackCases);
+          emit('test-cases-generated', fallbackCases.length);
+        } catch (fallbackError) {
+          console.error('备用生成测试用例失败:', fallbackError);
+          ElMessage.error('无法生成测试用例: ' + (aiError.message || '未知错误'));
+          emit('error', aiError);
+        }
       }
     }
   } catch (error) {
@@ -744,28 +886,40 @@ pre {
 
 /* JSON格式化样式 */
 .formatted-json {
-  font-family: monospace;
-  font-size: 12px;
+  border: 1px solid #ebeef5;
+  border-radius: 4px;
+  padding: 8px;
+  background-color: #f8f8f8;
   max-height: 300px;
   overflow-y: auto;
-  padding: 2px;
 }
 
 .param-item {
-  padding: 2px 0;
+  margin: 2px 0;
   display: flex;
-  flex-wrap: wrap;
+  align-items: flex-start;
 }
 
 .param-name {
-  color: #0d47a1;
-  margin-right: 5px;
+  color: #606266;
   font-weight: bold;
+  margin-right: 6px;
+  word-break: break-word;
 }
 
 .param-value {
+  color: #409eff;
   word-break: break-word;
-  flex: 1;
+}
+
+.parent-node {
+  cursor: pointer;
+  color: #303133;
+  font-weight: bold;
+}
+
+.parent-node:hover {
+  text-decoration: underline;
 }
 
 .test-results {

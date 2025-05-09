@@ -598,7 +598,118 @@ export function formatTestCasesForDisplay(testCases) {
     
     return testCases.map(testCase => {
       try {
-        const { name, parameters, body, expectedStatus, description } = testCase;
+        // 处理不同格式的测试用例数据
+        let name, parameters = {}, body = {}, expectedStatus = 200, description = '';
+        
+        // 如果是数组格式（通常来自AI生成）
+        if (Array.isArray(testCase)) {
+          name = testCase[0] || '未命名测试';
+          
+          // 最后一个元素通常是状态码
+          if (testCase.length > 1 && typeof testCase[testCase.length - 1] === 'number') {
+            expectedStatus = testCase[testCase.length - 1];
+            
+            // 如果数组中有JSON对象，将它们转换为body
+            const jsonItems = testCase.slice(1, -1).filter(item => 
+              typeof item === 'object' && item !== null
+            );
+            
+            if (jsonItems.length > 0) {
+              body = jsonItems[0];
+            } else {
+              // 否则尝试构建body对象
+              const middleItems = testCase.slice(1, -1);
+              if (middleItems.length > 0) {
+                // 如果是一个字符串，可能是参数描述
+                if (middleItems.length === 1 && typeof middleItems[0] === 'string') {
+                  description = middleItems[0];
+                } else {
+                  // 否则尝试构建参数对象
+                  try {
+                    // 检查是否包含URL格式的字符串
+                    const urlPattern = /https?:\/\/[^\s]+/;
+                    const urlItems = middleItems.filter(item => 
+                      typeof item === 'string' && urlPattern.test(item)
+                    );
+                    
+                    if (urlItems.length > 0) {
+                      // 如果有URL，设置为请求参数
+                      parameters = { url: urlItems[0] };
+                      
+                      // 剩余项作为body
+                      const remainingItems = middleItems.filter(item => 
+                        typeof item === 'string' && !urlPattern.test(item)
+                      );
+                      
+                      if (remainingItems.length === 1) {
+                        // 如果只有一项，可能是JSON字符串
+                        try {
+                          body = JSON.parse(remainingItems[0]);
+                        } catch (e) {
+                          body = { value: remainingItems[0] };
+                        }
+                      } else if (remainingItems.length > 1) {
+                        // 如果有多项，构建键值对
+                        body = {};
+                        for (let i = 0; i < remainingItems.length; i += 2) {
+                          if (i + 1 < remainingItems.length) {
+                            body[remainingItems[i]] = remainingItems[i + 1];
+                          } else {
+                            body[`param${i}`] = remainingItems[i];
+                          }
+                        }
+                      }
+                    } else {
+                      // 没有URL，尝试构建请求体
+                      body = {};
+                      for (let i = 0; i < middleItems.length; i += 2) {
+                        if (typeof middleItems[i] === 'string') {
+                          if (i + 1 < middleItems.length) {
+                            body[middleItems[i]] = middleItems[i + 1];
+                          } else {
+                            body[`param${i}`] = middleItems[i];
+                          }
+                        } else {
+                          body[`param${i}`] = middleItems[i];
+                        }
+                      }
+                    }
+                  } catch (e) {
+                    console.warn('构建参数对象失败:', e);
+                    body = { data: middleItems.join(', ') };
+                  }
+                }
+              }
+            }
+          } else {
+            // 如果最后一个元素不是数字，处理所有元素
+            const allItems = testCase.slice(1);
+            if (allItems.length > 0) {
+              // 同上处理逻辑，但不排除最后一个元素
+              // ...与上面类似的处理逻辑
+              const jsonItems = allItems.filter(item => 
+                typeof item === 'object' && item !== null
+              );
+              
+              if (jsonItems.length > 0) {
+                body = jsonItems[0];
+              } else {
+                body = { data: allItems.join(', ') };
+              }
+            }
+          }
+        } else if (typeof testCase === 'object') {
+          // 对象格式（标准格式）
+          name = testCase.name || '未命名测试';
+          parameters = testCase.parameters || {};
+          body = testCase.body || {};
+          expectedStatus = testCase.expectedStatus || 200;
+          description = testCase.description || '';
+        } else {
+          // 不支持的格式
+          name = '未知格式测试用例';
+          expectedStatus = 200;
+        }
         
         // 安全处理参数 - 确保参数是对象或可以被序列化为JSON的字符串
         let formattedParams;
