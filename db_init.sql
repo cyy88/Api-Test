@@ -1,0 +1,28 @@
+-- 创建数据库
+CREATE DATABASE IF NOT EXISTS aitest DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- 使用数据库
+USE aitest;
+
+-- 创建API数据表
+CREATE TABLE IF NOT EXISTS api_data (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  api_name VARCHAR(255) NOT NULL COMMENT 'API名称',
+  swagger_file_name VARCHAR(255) COMMENT 'Swagger文件名称',
+  swagger_data LONGTEXT COMMENT 'Swagger文档数据(JSON格式)',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 创建测试用例历史记录表
+CREATE TABLE IF NOT EXISTS test_case_history (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  api_id INT COMMENT '关联的API_ID',
+  path VARCHAR(255) NOT NULL COMMENT 'API路径',
+  method VARCHAR(20) NOT NULL COMMENT 'HTTP方法',
+  summary TEXT COMMENT 'API摘要描述',
+  test_cases LONGTEXT NOT NULL COMMENT '测试用例数据(JSON格式)',
+  generation_method VARCHAR(50) DEFAULT 'standard' COMMENT '生成方式(standard/ai)',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (api_id) REFERENCES api_data(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci; 

@@ -26,6 +26,13 @@
           </el-dropdown-menu>
         </template>
       </el-dropdown>
+      <el-button 
+        type="success" 
+        :disabled="!testCases.length" 
+        @click="saveToHistory"
+      >
+        保存到历史记录
+      </el-button>
     </div>
 
     <!-- AI生成选项对话框 -->
@@ -186,6 +193,7 @@ import { generateTestCases, formatTestCasesForDisplay, convertTestCasesToArray }
 import { generateTestCasesWithAI } from '../utils/deepseekAPI';
 import { ElMessage, ElNotification } from 'element-plus';
 import axios from 'axios';
+import historyService from '../services/historyService';
 
 const props = defineProps({
   api: {
@@ -462,29 +470,49 @@ watch(() => props.selectedPath, (newPath) => {
       testResults.value = [];
       currentTestResult.value = null;
       
-      // 自动生成测试用例
-      const cases = generateTestCases(props.api, newPath);
-      testCases.value = cases;
-      
-      // 确保格式化测试用例不会抛出错误
-      try {
-        formattedTestCases.value = formatTestCasesForDisplay(cases);
-      } catch (formatError) {
-        console.error('格式化测试用例时出错:', formatError);
-        // 使用简单格式显示测试用例
-        formattedTestCases.value = cases.map(c => ({
-          name: c.name || '未命名测试',
-          parameters: typeof c.parameters === 'string' ? c.parameters : JSON.stringify(c.parameters || {}),
-          body: typeof c.body === 'string' ? c.body : JSON.stringify(c.body || {}),
-          expectedStatus: c.expectedStatus || 200,
-          description: c.description || ''
-        }));
+      // 检查是否是从历史记录导入的测试用例
+      if (newPath.imported && newPath.importedTestCases) {
+        // 使用导入的测试用例
+        testCases.value = newPath.importedTestCases;
+        
+        try {
+          formattedTestCases.value = formatTestCasesForDisplay(newPath.importedTestCases);
+        } catch (formatError) {
+          console.error('格式化导入的测试用例时出错:', formatError);
+          // 使用简单格式显示测试用例
+          formattedTestCases.value = newPath.importedTestCases.map(c => ({
+            name: c.name || '未命名测试',
+            parameters: typeof c.parameters === 'string' ? c.parameters : JSON.stringify(c.parameters || {}),
+            body: typeof c.body === 'string' ? c.body : JSON.stringify(c.body || {}),
+            expectedStatus: c.expectedStatus || 200,
+            description: c.description || ''
+          }));
+        }
+      } else {
+        // 自动生成测试用例
+        const cases = generateTestCases(props.api, newPath);
+        testCases.value = cases;
+        
+        // 确保格式化测试用例不会抛出错误
+        try {
+          formattedTestCases.value = formatTestCasesForDisplay(cases);
+        } catch (formatError) {
+          console.error('格式化测试用例时出错:', formatError);
+          // 使用简单格式显示测试用例
+          formattedTestCases.value = cases.map(c => ({
+            name: c.name || '未命名测试',
+            parameters: typeof c.parameters === 'string' ? c.parameters : JSON.stringify(c.parameters || {}),
+            body: typeof c.body === 'string' ? c.body : JSON.stringify(c.body || {}),
+            expectedStatus: c.expectedStatus || 200,
+            description: c.description || ''
+          }));
+        }
       }
       
       // 发送生成的测试用例数量
-      emit('test-cases-generated', cases.length);
+      emit('test-cases-generated', testCases.value.length);
     } catch (error) {
-      console.error('自动生成测试用例时出错:', error);
+      console.error('处理测试用例时出错:', error);
       emit('error', error);
     }
   }
@@ -836,6 +864,77 @@ const handleExport = (command) => {
     link.href = URL.createObjectURL(blob);
     link.download = filename;
     link.click();
+  }
+};
+
+// 添加保存历史记录的函数
+const saveToHistory = async () => {
+  if (!testCases.value || testCases.value.length === 0) {
+    ElMessage.warning('没有测试用例可保存');
+    return;
+  }
+
+  try {
+    // 尝试保存API数据
+    let apiId = null;
+    if (props.api) {
+      const apiName = props.api.info?.title || '未命名API';
+      const swaggerFileName = 'swagger.json'; // 这里可以根据实际情况设置文件名
+      
+      try {
+        const apiResult = await historyService.saveApiData({
+          api_name: apiName,
+          swagger_file_name: swaggerFileName,
+          swagger_data: JSON.stringify(props.api)
+        });
+        
+        apiId = apiResult.id;
+      } catch (apiError) {
+        console.error('保存API数据失败:', apiError);
+        // 即使API保存失败，我们仍然尝试保存测试用例
+      }
+    }
+    
+    // 确保测试用例是可序列化的格式
+    const serializedTestCases = testCases.value.map(testCase => {
+      // 如果测试用例是数组格式，转换为对象格式
+      if (Array.isArray(testCase)) {
+        return {
+          name: testCase[0] || '未命名测试',
+          parameters: {},
+          body: testCase[1] || {},
+          expectedStatus: testCase[2] || 200,
+          description: ''
+        };
+      }
+      
+      // 确保测试用例的每个字段都是可序列化的
+      return {
+        ...testCase,
+        parameters: testCase.parameters || {},
+        body: testCase.body || {},
+        expectedStatus: testCase.expectedStatus || 200,
+        description: testCase.description || ''
+      };
+    });
+    
+    // 准备历史记录数据
+    const historyData = {
+      api_id: apiId,
+      path: props.selectedPath.path,
+      method: props.selectedPath.method,
+      summary: props.selectedPath.summary || '',
+      test_cases: serializedTestCases,
+      generation_method: generationMethod.value || 'standard'
+    };
+    
+    // 保存历史记录
+    const result = await historyService.saveHistory(historyData);
+    
+    ElMessage.success('成功保存到历史记录');
+  } catch (error) {
+    console.error('保存历史记录失败:', error);
+    ElMessage.error(error.message || '保存历史记录失败');
   }
 };
 </script>

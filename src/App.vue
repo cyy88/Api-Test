@@ -16,9 +16,17 @@
       <div v-else>
         <div class="header-actions">
           <el-button type="danger" @click="confirmClearApiData">删除文档</el-button>
+          <el-button type="primary" @click="showHistory = !showHistory">
+            {{ showHistory ? '隐藏历史记录' : '查看历史记录' }}
+          </el-button>
         </div>
 
-        <div class="main-content">
+        <!-- 历史记录组件 -->
+        <div v-if="showHistory">
+          <history-records @import-test-cases="handleImportTestCases" />
+        </div>
+
+        <div class="main-content" v-show="!showHistory">
           <!-- API路径列表部分 -->
           <div class="card api-card">
             <div class="card-header">
@@ -89,6 +97,7 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import FileUploader from './components/FileUploader.vue';
 import ApiPathsList from './components/ApiPathsList.vue';
 import TestCaseGenerator from './components/TestCaseGenerator.vue';
+import HistoryRecords from './components/HistoryRecords.vue';
 
 const api = ref(null);
 const selectedPath = ref(null);
@@ -99,6 +108,7 @@ const testCaseCount = ref(0);
 const errorDialogVisible = ref(false);
 const errorMessage = ref('');
 const errorDetails = ref('');
+const showHistory = ref(false);
 
 // 从本地存储加载数据
 onMounted(() => {
@@ -263,6 +273,32 @@ const handleClearError = () => {
   // 如果是测试用例生成出错，清除选中路径
   if (api.value && !selectedPath.value) {
     selectedPath.value = null;
+  }
+};
+
+// 处理从历史记录导入测试用例
+const handleImportTestCases = (importData) => {
+  try {
+    if (!api.value) {
+      ElMessage.warning('请先上传Swagger文档');
+      return;
+    }
+    
+    // 设置选中的路径
+    selectedPath.value = {
+      path: importData.path,
+      method: importData.method,
+      summary: importData.summary || '',
+      imported: true,
+      importedTestCases: importData.test_cases
+    };
+    
+    // 隐藏历史记录面板
+    showHistory.value = false;
+    
+    ElMessage.success('成功导入测试用例');
+  } catch (error) {
+    showError('导入测试用例出错', error);
   }
 };
 </script>
