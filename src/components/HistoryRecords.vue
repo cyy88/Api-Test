@@ -150,8 +150,13 @@
               </template>
             </el-table-column>
             
-            <el-table-column prop="expectedStatus" label="预期状态码" width="120" />
-            
+            <el-table-column prop="expectedStatus" label="预期状态码" width="120">
+              <template #default="scope">
+                <span>{{ scope.row.expectedStatus || '-' }}</span>
+              </template>
+            </el-table-column>
+              
+
             <el-table-column label="补充说明" min-width="150">
               <template #default="scope">
                 <span>{{ scope.row.description || '无补充说明' }}</span>

@@ -913,7 +913,7 @@ const saveToHistory = async () => {
           name: testCase[0] || '未命名测试',
           parameters: {},
           body: testCase[1] || {},
-          expectedStatus: testCase[2] || 200,
+          expectedStatus: testCase[4] || 200,
           code: testCase.length > 3 ? testCase[2] : '',
           description: testCase.length > 4 ? testCase[3] : ''
         };
