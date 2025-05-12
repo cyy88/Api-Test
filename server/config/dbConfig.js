@@ -7,5 +7,6 @@ module.exports = {
   database: process.env.VITE_MYSQL_DATABASE || 'aitest',
   waitForConnections: true,
   connectionLimit: 10,
-  queueLimit: 0
+  queueLimit: 0,
+  charset: 'utf8mb4'
 }; 

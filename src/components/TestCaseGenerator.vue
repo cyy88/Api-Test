@@ -138,6 +138,8 @@
           </template>
         </el-table-column>
         
+        <el-table-column prop="code" label="响应code值" width="120" />
+        
         <el-table-column prop="expectedStatus" label="预期状态码" width="120" />
         
         <el-table-column label="补充说明" min-width="150">
@@ -485,7 +487,8 @@ watch(() => props.selectedPath, (newPath) => {
             parameters: typeof c.parameters === 'string' ? c.parameters : JSON.stringify(c.parameters || {}),
             body: typeof c.body === 'string' ? c.body : JSON.stringify(c.body || {}),
             expectedStatus: c.expectedStatus || 200,
-            description: c.description || ''
+            description: c.description || '',
+            code: Array.isArray(c) && c.length > 3 ? c[2] : (c.code || '')
           }));
         }
       } else {
@@ -504,7 +507,8 @@ watch(() => props.selectedPath, (newPath) => {
             parameters: typeof c.parameters === 'string' ? c.parameters : JSON.stringify(c.parameters || {}),
             body: typeof c.body === 'string' ? c.body : JSON.stringify(c.body || {}),
             expectedStatus: c.expectedStatus || 200,
-            description: c.description || ''
+            description: c.description || '',
+            code: Array.isArray(c) && c.length > 3 ? c[2] : (c.code || '')
           }));
         }
       }
@@ -542,7 +546,8 @@ const generateCasesWithSelectedMethod = async () => {
           parameters: typeof c.parameters === 'string' ? c.parameters : JSON.stringify(c.parameters || {}),
           body: typeof c.body === 'string' ? c.body : JSON.stringify(c.body || {}),
           expectedStatus: c.expectedStatus || 200,
-          description: c.description || ''
+          description: c.description || '',
+          code: Array.isArray(c) && c.length > 3 ? c[2] : (c.code || '')
         }));
       }
       
@@ -603,8 +608,9 @@ const generateCasesWithSelectedMethod = async () => {
           } else if (typeof testCase === 'object' && testCase !== null) {
             // 对象格式转换为数组格式
             const name = testCase.name || testCase.productName || '未命名测试';
-            const status = testCase.expectedStatus || testCase.statusCode || 200;
-            return [name, testCase, status];
+            const expectedStatus = testCase.expectedStatus || 0;
+            const status = testCase.statusCode || 200;
+            return [name, testCase, expectedStatus, status];
           } else if (typeof testCase === 'string') {
             // 字符串转换为简单测试用例
             return [testCase, {}, 200];
@@ -644,7 +650,8 @@ const generateCasesWithSelectedMethod = async () => {
                     JSON.stringify(tc[1]) : '{}',
                   expectedStatus: tc.length > 2 && typeof tc[2] === 'number' ? 
                     tc[2] : 200,
-                  description: ''
+                  description: '',
+                  code: tc.length > 3 ? tc[2] : ''
                 };
               } else if (typeof tc === 'object' && tc !== null) {
                 return {
@@ -652,7 +659,8 @@ const generateCasesWithSelectedMethod = async () => {
                   parameters: JSON.stringify(tc.parameters || {}),
                   body: JSON.stringify(tc.body || tc),
                   expectedStatus: tc.expectedStatus || 200,
-                  description: tc.description || ''
+                  description: tc.description || '',
+                  code: tc.code || ''
                 };
               } else {
                 return {
@@ -660,7 +668,8 @@ const generateCasesWithSelectedMethod = async () => {
                   parameters: '{}',
                   body: '{}',
                   expectedStatus: 200,
-                  description: ''
+                  description: '',
+                  code: ''
                 };
               }
             } catch (e) {
@@ -670,7 +679,8 @@ const generateCasesWithSelectedMethod = async () => {
                 parameters: '{}',
                 body: '{}',
                 expectedStatus: 200,
-                description: '数据格式错误'
+                description: '数据格式错误',
+                code: ''
               };
             }
           };

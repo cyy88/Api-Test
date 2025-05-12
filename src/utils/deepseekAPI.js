@@ -462,7 +462,38 @@ function parseAIResponseToTestCases(aiResponse) {
       const directJson = JSON.parse(cleanedResponse);
       if (Array.isArray(directJson)) {
         console.log('成功: 将整个响应解析为JSON数组');
-        return directJson;
+        
+        // 确保每个测试用例都有正确的格式
+        return directJson.map(testCase => {
+          if (Array.isArray(testCase)) {
+            // 对于数组格式，从数组中提取测试用例信息
+            // 通常格式是: [name, parameters/body, expectedStatus, code]
+            const name = testCase[0] || '未命名测试';
+            const body = testCase.length > 1 ? testCase[1] : {};
+            
+            // 如果数组长度大于3，使用索引3作为code，最后一个元素作为expectedStatus
+            let code = '';
+            let expectedStatus = 200;
+            
+            if (testCase.length > 3) {
+              code = testCase[3];
+              // 使用最后一个元素作为expectedStatus
+              if (testCase.length > 4 && typeof testCase[testCase.length - 1] === 'number') {
+                expectedStatus = testCase[testCase.length - 1];
+              } else if (typeof testCase[2] === 'number') {
+                expectedStatus = testCase[2];
+              }
+            } else if (testCase.length > 2) {
+              // 如果只有3个元素，使用索引2作为expectedStatus
+              if (typeof testCase[2] === 'number') {
+                expectedStatus = testCase[2];
+              }
+            }
+            
+            return [name, body, expectedStatus, code];
+          }
+          return testCase;
+        });
       }
     } catch (e) {
       console.log('无法将整个响应直接解析为JSON');
@@ -474,7 +505,38 @@ function parseAIResponseToTestCases(aiResponse) {
       try {
         const parsed = JSON.parse(arrayMatch[0]);
         console.log('成功: 从响应中提取并解析JSON数组');
-        return parsed;
+        
+        // 确保每个测试用例都有正确的格式
+        return parsed.map(testCase => {
+          if (Array.isArray(testCase)) {
+            // 对于数组格式，从数组中提取测试用例信息
+            // 通常格式是: [name, parameters/body, expectedStatus, code]
+            const name = testCase[0] || '未命名测试';
+            const body = testCase.length > 1 ? testCase[1] : {};
+            
+            // 如果数组长度大于3，使用索引3作为code，最后一个元素作为expectedStatus
+            let code = '';
+            let expectedStatus = 200;
+            
+            if (testCase.length > 3) {
+              code = testCase[3];
+              // 使用最后一个元素作为expectedStatus
+              if (testCase.length > 4 && typeof testCase[testCase.length - 1] === 'number') {
+                expectedStatus = testCase[testCase.length - 1];
+              } else if (typeof testCase[2] === 'number') {
+                expectedStatus = testCase[2];
+              }
+            } else if (testCase.length > 2) {
+              // 如果只有3个元素，使用索引2作为expectedStatus
+              if (typeof testCase[2] === 'number') {
+                expectedStatus = testCase[2];
+              }
+            }
+            
+            return [name, body, expectedStatus, code];
+          }
+          return testCase;
+        });
       } catch (e) {
         console.error('JSON数组提取失败:', e);
       }
@@ -488,6 +550,39 @@ function parseAIResponseToTestCases(aiResponse) {
         try {
           const parsed = JSON.parse(codeBlockMatch[1]);
           console.log('成功: 从代码块中解析出JSON');
+          // 确保每个测试用例都有正确的格式
+          if (Array.isArray(parsed)) {
+            return parsed.map(testCase => {
+              if (Array.isArray(testCase)) {
+                // 对于数组格式，从数组中提取测试用例信息
+                // 通常格式是: [name, parameters/body, expectedStatus, code]
+                const name = testCase[0] || '未命名测试';
+                const body = testCase.length > 1 ? testCase[1] : {};
+                
+                // 如果数组长度大于3，使用索引3作为code，最后一个元素作为expectedStatus
+                let code = '';
+                let expectedStatus = 200;
+                
+                if (testCase.length > 3) {
+                  code = testCase[3];
+                  // 使用最后一个元素作为expectedStatus
+                  if (testCase.length > 4 && typeof testCase[testCase.length - 1] === 'number') {
+                    expectedStatus = testCase[testCase.length - 1];
+                  } else if (typeof testCase[2] === 'number') {
+                    expectedStatus = testCase[2];
+                  }
+                } else if (testCase.length > 2) {
+                  // 如果只有3个元素，使用索引2作为expectedStatus
+                  if (typeof testCase[2] === 'number') {
+                    expectedStatus = testCase[2];
+                  }
+                }
+                
+                return [name, body, expectedStatus, code];
+              }
+              return testCase;
+            });
+          }
           return parsed;
         } catch (jsonError) {
           // 如果直接解析失败，尝试修复常见问题后再解析
@@ -498,6 +593,40 @@ function parseAIResponseToTestCases(aiResponse) {
             
           const parsed = JSON.parse(fixedJson);
           console.log('成功: 修复并解析代码块中的JSON');
+          
+          // 确保每个测试用例都有正确的格式
+          if (Array.isArray(parsed)) {
+            return parsed.map(testCase => {
+              if (Array.isArray(testCase)) {
+                // 对于数组格式，从数组中提取测试用例信息
+                // 通常格式是: [name, parameters/body, expectedStatus, code]
+                const name = testCase[0] || '未命名测试';
+                const body = testCase.length > 1 ? testCase[1] : {};
+                
+                // 如果数组长度大于3，使用索引3作为code，最后一个元素作为expectedStatus
+                let code = '';
+                let expectedStatus = 200;
+                
+                if (testCase.length > 3) {
+                  code = testCase[3];
+                  // 使用最后一个元素作为expectedStatus
+                  if (testCase.length > 4 && typeof testCase[testCase.length - 1] === 'number') {
+                    expectedStatus = testCase[testCase.length - 1];
+                  } else if (typeof testCase[2] === 'number') {
+                    expectedStatus = testCase[2];
+                  }
+                } else if (testCase.length > 2) {
+                  // 如果只有3个元素，使用索引2作为expectedStatus
+                  if (typeof testCase[2] === 'number') {
+                    expectedStatus = testCase[2];
+                  }
+                }
+                
+                return [name, body, expectedStatus, code];
+              }
+              return testCase;
+            });
+          }
           return parsed;
         }
       } catch (e) {
@@ -575,6 +704,7 @@ function parseAIResponseToTestCases(aiResponse) {
           });
           
           console.log('成功: 从markdown表格解析出测试用例:', tableData.length);
+          console.log('测试用例:', tableData);
           return tableData;
         }
       } catch (e) {
