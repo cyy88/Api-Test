@@ -914,7 +914,8 @@ const saveToHistory = async () => {
           parameters: {},
           body: testCase[1] || {},
           expectedStatus: testCase[2] || 200,
-          description: ''
+          code: testCase.length > 3 ? testCase[2] : '',
+          description: testCase.length > 4 ? testCase[3] : ''
         };
       }
       
@@ -924,6 +925,7 @@ const saveToHistory = async () => {
         parameters: testCase.parameters || {},
         body: testCase.body || {},
         expectedStatus: testCase.expectedStatus || 200,
+        code: testCase.code || '',
         description: testCase.description || ''
       };
     });

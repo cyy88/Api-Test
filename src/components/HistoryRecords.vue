@@ -144,6 +144,12 @@
               </template>
             </el-table-column>
             
+            <el-table-column prop="code" label="响应code值" width="120">
+              <template #default="scope">
+                <span>{{ scope.row.code || '-' }}</span>
+              </template>
+            </el-table-column>
+            
             <el-table-column prop="expectedStatus" label="预期状态码" width="120" />
             
             <el-table-column label="补充说明" min-width="150">

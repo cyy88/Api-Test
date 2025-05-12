@@ -779,8 +779,8 @@ export function formatTestCasesForDisplay(testCases) {
           parameters: formattedParams || '{}',
           body: formattedBody || '{}',
           expectedStatus: expectedStatus || 200,
-          description: description || '',  // 确保始终有description字段
-          code: Array.isArray(testCase) && testCase.length > 3 ? testCase[2] : ''
+          code: Array.isArray(testCase) && testCase.length > 3 ? testCase[2] : (testCase.code || ''),
+          description: description || (Array.isArray(testCase) && testCase.length > 4 ? testCase[3] : '')
         };
       } catch (itemError) {
         console.error('格式化单个测试用例时出错:', itemError);
@@ -790,8 +790,8 @@ export function formatTestCasesForDisplay(testCases) {
           parameters: '{}',
           body: '{}',
           expectedStatus: 200,
-          description: '数据格式错误',
-          code: ''
+          code: '',
+          description: '数据格式错误'
         };
       }
     });
